@@ -1,0 +1,1710 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <!-- METADATA AND TITLE -->
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>EMI Attenuation Plotter | Interactive Data Tool</title>
+        
+        <!-- Plotly.js library for charting -->
+        <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+        
+        <!-- STYLESHEET -->
+        <style>
+            /* --- CSS VARIABLES (MATCHING PORTFOLIO BRANDING) --- */
+            :root {
+                --bg: #1E2022;
+                --panel: #2B2E33;
+                --panel-border: rgba(255, 255, 255, 0.05);
+                --text: #F4F7F6;
+                --text-on-white: #F4F7F6;
+                --muted: #A0AAB2;
+                --blue: #3B7197;
+                --blue-600: #4a8bb8;
+                --orange: #F08A4B;
+                --orange-hover: #f3a06b;
+                --chip: #454a52;
+                --radius: 8px;
+                --shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+                --ctl-h: 40px; 
+            }
+            
+            * {
+                box-sizing: border-box;
+            }
+            
+            body {
+                margin: 0;
+                background: var(--bg);
+                color: var(--text);
+                font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
+            }
+            
+            .container {
+                max-width: 1200px;
+                margin: auto;
+                padding: 24px;
+            }
+            
+            header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 24px;
+                flex-wrap: wrap;
+                gap: 12px;
+                border-bottom: 1px solid var(--panel-border);
+                padding-bottom: 16px;
+            }
+            
+            .toolbar {
+                display: flex;
+                align-items: center;
+                gap: 12px;
+                flex-wrap: wrap;
+                justify-content: flex-end;
+            }
+            
+            .title {
+                font-size: 24px;
+                font-weight: 800;
+                letter-spacing: -0.5px;
+                color: var(--text);
+            }
+
+            .title span {
+                color: var(--blue);
+            }
+            
+            .panel {
+                background: var(--panel);
+                border-radius: var(--radius);
+                padding: 20px;
+                margin-bottom: 16px;
+                box-shadow: var(--shadow);
+                border: 1px solid var(--panel-border);
+            }
+            
+            .panel-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 16px;
+                padding-bottom: 12px;
+                border-bottom: 1px solid var(--panel-border);
+            }
+            
+            h3 {
+                margin: 0;
+                font-size: 13px;
+                color: var(--blue);
+                text-transform: uppercase;
+                letter-spacing: 1.5px;
+                font-family: 'JetBrains Mono', monospace;
+            }
+            
+            /* --- FORMS & CONTROLS --- */
+            label {
+                font-size: 12px;
+                color: var(--muted);
+                display: flex;
+                flex-direction: column;
+                gap: 6px;
+                font-weight: 600;
+            }
+            
+            input, select, button {
+                background: rgba(0,0,0,0.2);
+                color: var(--text);
+                border: 1px solid rgba(255,255,255,0.1);
+                border-radius: 6px;
+                padding: 0 12px;
+                font-size: 14px;
+                height: var(--ctl-h);
+                line-height: calc(var(--ctl-h) - 2px);
+                transition: border-color 0.2s ease, background 0.2s ease;
+            }
+
+            input:focus, select:focus {
+                outline: none;
+                border-color: var(--blue);
+                background: rgba(0,0,0,0.4);
+            }
+            
+            input[type="color"] {
+                padding: 4px;
+                width: 100%;
+                cursor: pointer;
+            }
+            
+            button {
+                cursor: pointer;
+                font-weight: 600;
+                background: var(--panel);
+            }
+
+            button:hover {
+                background: rgba(255,255,255,0.05);
+                border-color: var(--muted);
+            }
+            
+            .split {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 18px;
+            }
+            
+            .grid-3 {
+                display: grid;
+                grid-template-columns: repeat(3, 1fr);
+                gap: 12px;
+            }
+            
+            .control-row {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+                gap: 14px;
+                align-items: end;
+            }
+            
+            .form-field {
+                display: flex;
+                flex-direction: column;
+                gap: 6px;
+                min-width: 0;
+            }
+            
+            .field-label {
+                font-size: 12px;
+                color: var(--muted);
+                font-weight: 600;
+            }
+            
+            /* --- CAPACITOR TABLE --- */
+            table {
+                width: 100%;
+                border-collapse: separate;
+                border-spacing: 0 10px;
+            }
+            
+            thead th {
+                font-size: 12px;
+                text-align: left;
+                color: var(--muted);
+                font-weight: 600;
+                text-transform: uppercase;
+                letter-spacing: 1px;
+            }
+            
+            tbody td {
+                background: rgba(0,0,0,0.15);
+                border: 1px solid var(--panel-border);
+                padding: 10px;
+                border-radius: var(--radius);
+                vertical-align: middle;
+            }
+            
+            .cap-input-grid {
+                display: grid;
+                grid-template-columns: minmax(90px, 140px) 90px 1fr auto;
+                gap: 8px;
+                align-items: center;
+            }
+            
+            #capBody td:nth-of-type(3),
+            #capBody td:nth-of-type(5) {
+                text-align: center;
+            }
+            
+            /* Drag and Drop Styling */
+            .drag-handle {
+                cursor: grab;
+                padding-right: 8px;
+                user-select: none;
+                color: var(--muted);
+            }
+            
+            tr.dragging {
+                cursor: grabbing;
+                opacity: 0.8;
+            }
+            
+            tr.drag-over-top td {
+                box-shadow: inset 0 3px 0 0 var(--blue);
+            }
+            
+            tr.drag-over-bottom td {
+                box-shadow: inset 0 -3px 0 0 var(--blue);
+            }
+            
+            /* --- CHART & LEGEND --- */
+            #chart {
+                width: 100%;
+                height: 640px;
+            }
+            
+            .legend-bar {
+                overflow-x: auto;
+                white-space: nowrap;
+                padding: 12px;
+            }
+            
+            .legend-item {
+                display: inline-flex;
+                align-items: center;
+                gap: 8px;
+                margin: 4px 8px;
+                padding: 6px 12px;
+                border: 1px solid var(--panel-border);
+                border-radius: 999px;
+                cursor: pointer;
+                background: rgba(0,0,0,0.2);
+                font-size: 13px;
+                font-weight: 600;
+            }
+            
+            .legend-item.hidden {
+                opacity: 0.3;
+                border-style: dashed;
+            }
+            
+            .chip {
+                display: inline-block;
+                width: 12px;
+                height: 12px;
+                border-radius: 50%;
+                border: 1px solid rgba(255,255,255,0.2);
+            }
+            
+            /* --- PILL TOGGLE SWITCH --- */
+            .pill-toggle {
+                display: inline-flex;
+                align-items: center;
+                gap: 10px;
+                min-width: 0;
+            }
+            
+            .pill-toggle input {
+                position: absolute;
+                opacity: 0;
+                pointer-events: none;
+            }
+            
+            .pill-toggle .track {
+                position: relative;
+                width: calc(var(--ctl-h) * 1.5);
+                height: calc(var(--ctl-h) * 0.8);
+                border-radius: 9999px;
+                background: rgba(0,0,0,0.3);
+                border: 1px solid rgba(255,255,255,0.1);
+                flex: 0 0 auto;
+                transition: background 0.2s, border-color 0.2s;
+            }
+            
+            .pill-toggle .thumb {
+                position: absolute;
+                top: 2px;
+                left: 2px;
+                width: calc((var(--ctl-h) * 0.8) - 6px);
+                height: calc((var(--ctl-h) * 0.8) - 6px);
+                border-radius: 50%;
+                background: var(--muted);
+                transition: transform 0.2s ease, background 0.2s ease;
+            }
+            
+            .pill-toggle input:checked + .track {
+                background: rgba(59, 113, 151, 0.3);
+                border-color: var(--blue);
+            }
+            
+            .pill-toggle input:checked + .track .thumb {
+                transform: translateX(calc((var(--ctl-h) * 1.5) - (var(--ctl-h) * 0.8)));
+                background: var(--blue);
+            }
+            
+            /* --- BUTTON STYLES --- */
+            .btn-blue {
+                background: var(--blue);
+                border-color: var(--blue);
+                color: #fff;
+            }
+            
+            .btn-blue:hover {
+                background: var(--blue-600);
+                border-color: var(--blue-600);
+            }
+
+            .btn-orange {
+                background: var(--orange);
+                border-color: var(--orange);
+                color: var(--bg);
+            }
+
+            .btn-orange:hover {
+                background: var(--orange-hover);
+                border-color: var(--orange-hover);
+            }
+            
+            .icon-btn {
+                width: var(--ctl-h);
+                height: var(--ctl-h);
+                padding: 0;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+            }
+            
+            .icon-btn svg {
+                width: 18px;
+                height: 18px;
+                display: block;
+                stroke: var(--muted);
+            }
+
+            .icon-btn:hover svg {
+                stroke: var(--text);
+            }
+            
+            /* --- SOLVER RESULTS UI --- */
+            .solver-wrap {
+                display: grid;
+                grid-template-columns: 1.1fr 0.9fr;
+                gap: 14px;
+            }
+            
+            .best-card {
+                border: 1px solid var(--blue);
+                border-radius: var(--radius);
+                padding: 16px;
+                background: rgba(59, 113, 151, 0.1);
+            }
+            
+            .best-title {
+                font-size: 14px;
+                font-weight: 700;
+                color: var(--blue);
+                margin: 0 0 8px;
+                text-transform: uppercase;
+                letter-spacing: 1px;
+            }
+            
+            .avg-badge {
+                display: inline-block;
+                padding: 6px 12px;
+                border-radius: 999px;
+                background: rgba(0,0,0,0.3);
+                border: 1px solid var(--panel-border);
+                font-family: var(--font-mono);
+                font-size: 13px;
+                color: var(--orange);
+            }
+            
+            .alt-list {
+                display: grid;
+                gap: 8px;
+            }
+            
+            .alt-item {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                border: 1px solid var(--panel-border);
+                border-radius: 8px;
+                padding: 8px 12px;
+                background: rgba(0,0,0,0.2);
+                font-size: 13px;
+            }
+            
+            /* --- CUSTOM SCROLLBARS --- */
+            ::-webkit-scrollbar {
+                width: 10px;
+                height: 10px;
+            }
+            ::-webkit-scrollbar-track {
+                background: var(--bg);
+            }
+            ::-webkit-scrollbar-thumb {
+                background-color: var(--panel-border);
+                border-radius: 99px;
+            }
+            ::-webkit-scrollbar-thumb:hover {
+                background-color: var(--muted);
+            }
+            
+            /* --- TOOLTIP STYLES --- */
+            [data-tooltip] {
+                position: relative;
+            }
+            [data-tooltip]::after {
+                content: attr(data-tooltip);
+                position: absolute;
+                bottom: 100%;
+                left: 50%;
+                transform: translateX(-50%);
+                margin-bottom: 8px;
+                background: #000;
+                color: #fff;
+                border-radius: 6px;
+                padding: 8px 12px;
+                font-size: 12px;
+                line-height: 1.4;
+                white-space: pre-wrap;
+                width: max-content;
+                max-width: 280px;
+                text-align: center;
+                pointer-events: none;
+                opacity: 0;
+                transition: opacity 0.2s, transform 0.2s;
+                z-index: 1001;
+                border: 1px solid rgba(255,255,255,0.1);
+            }
+            [data-tooltip]:hover::after {
+                opacity: 1;
+                transform: translateX(-50%) translateY(-4px);
+            }
+            
+            .tooltip-icon {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                width: 14px;
+                height: 14px;
+                border-radius: 50%;
+                border: 1px solid var(--muted);
+                color: var(--muted);
+                font-size: 10px;
+                font-weight: bold;
+                cursor: help;
+                margin-left: 6px;
+            }
+            
+            .label-with-tooltip {
+                display: flex;
+                align-items: center;
+            }
+            
+            /* --- MODAL --- */
+            .modal-backdrop {
+                position: fixed;
+                inset: 0;
+                background: rgba(0, 0, 0, 0.7);
+                backdrop-filter: blur(4px);
+                display: none;
+                align-items: center;
+                justify-content: center;
+                z-index: 1000;
+            }
+            
+            .modal {
+                background: var(--panel);
+                border: 1px solid var(--panel-border);
+                border-radius: 12px;
+                box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+                width: min(680px, 92vw);
+                padding: 24px;
+            }
+            
+            .modal-actions {
+                display: flex;
+                justify-content: flex-end;
+                gap: 12px;
+                margin-top: 24px;
+                padding-top: 16px;
+                border-top: 1px solid var(--panel-border);
+            }
+
+            .empty-state {
+                text-align: center;
+                padding: 32px;
+                color: var(--muted);
+                border: 2px dashed rgba(255,255,255,0.1);
+                border-radius: var(--radius);
+                background: rgba(0,0,0,0.1);
+            }
+
+            input[type="range"] {
+                -webkit-appearance: none;
+                width: 100%;
+                background: transparent;
+                border: none;
+            }
+
+            input[type="range"]::-webkit-slider-runnable-track {
+                width: 100%;
+                height: 4px;
+                cursor: pointer;
+                background: rgba(255,255,255,0.1);
+                border-radius: 4px;
+            }
+
+            input[type="range"]::-webkit-slider-thumb {
+                height: 16px;
+                width: 16px;
+                border-radius: 50%;
+                background: var(--blue);
+                cursor: pointer;
+                -webkit-appearance: none;
+                margin-top: -6px;
+            }
+            
+            /* --- RESPONSIVE --- */
+            @media (max-width: 1100px) {
+                .split { grid-template-columns: 1fr; }
+                .solver-wrap { grid-template-columns: 1fr; }
+            }
+            
+            @media (max-width: 768px) {
+                .cap-input-grid { grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); }
+                table, thead, tbody, th, td, tr { display: block; }
+                thead { display: none; }
+                
+                #capBody tr {
+                    padding: 16px;
+                    margin-bottom: 16px;
+                    background: rgba(0,0,0,0.15);
+                    border: 1px solid var(--panel-border);
+                    border-radius: var(--radius);
+                }
+                
+                #capBody td {
+                    padding: 8px 0;
+                    border: none;
+                    background: transparent;
+                }
+                
+                #capBody td:not(:last-child) {
+                    border-bottom: 1px solid rgba(255,255,255,0.05);
+                }
+                
+                #capBody tr[data-index*="-adv"] {
+                    border: none;
+                    padding-top: 0;
+                    margin-top: -16px;
+                    background: rgba(0,0,0,0.25);
+                }
+                
+                #capBody td:nth-of-type(1)::before { content: "#: "; color: var(--muted); margin-left: 8px; }
+                #capBody td:nth-of-type(2)::before { content: "Color: "; color: var(--muted); margin-right: 8px; }
+                #capBody td:nth-of-type(3)::before { content: "Properties"; color: var(--muted); display: block; margin-bottom: 8px; }
+                #capBody td:nth-of-type(4)::before { content: "Only: "; color: var(--muted); margin-right: 8px; }
+                #capBody td:nth-of-type(5) { display: flex; gap: 8px; flex-wrap: wrap; padding-top: 12px; }
+                #capBody td:nth-of-type(2), #capBody td:nth-of-type(4) { display: flex; align-items: center; }
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <!-- HEADER -->
+            <header>
+                <div class="title">EMI <span>Attenuation Plotter</span></div>
+                <div class="toolbar">
+                    <button id="btnExport" data-tooltip="Export the currently visible curves to a CSV file.">Export CSV</button>
+                    <button id="btnExportPng" data-tooltip="Export or copy the current chart as a high-res PNG image.">Export Image</button>
+                    <button id="btnReset" style="color: var(--orange); border-color: var(--orange);">Reset Defaults</button>
+                    <button id="btnSolver" class="btn-blue" data-tooltip="Analyzes all capacitors to find the one with the best average attenuation across a specified target range.">Solver Mode</button>
+                </div>
+            </header>
+
+            <!-- MAIN CONTROL PANELS -->
+            <div class="split">
+                <!-- FREQUENCY PANEL -->
+                <div class="panel" id="freqPanel">
+                    <h3 id="freqPanelTitle">Frequency & Resolution</h3>
+                    
+                    <div id="freqControls" class="grid-3" style="margin-top: 14px; margin-bottom: 10px;">
+                        <label><span class="label-with-tooltip">Start Freq <span class="tooltip-icon" data-tooltip="Example inputs: '10k', '20M', '1G'">?</span></span><input id="startHz" value="1 kHz"/></label>
+                        <label><span class="label-with-tooltip">End Freq <span class="tooltip-icon" data-tooltip="Example inputs: '10k', '20M', '1G'">?</span></span><input id="endHz" value="10 GHz"/></label>
+                        <label>Data Points <input id="pointsNum" type="number" min="50" max="3000" step="50" value="2950"/></label>
+                    </div>
+                    
+                    <div id="freqHint" style="font-size: 11px; color: var(--muted); padding-bottom: 10px;">Units (kHz, MHz, GHz) are auto-parsed. High data points may impact performance.</div>
+                    <input id="pointsRange" type="range" min="50" max="3000" step="50" value="2950"/>
+                    
+                    <!-- Solver Mode Outage Range Controls -->
+                    <div id="outageUI" class="grid-3" style="display: none; margin-top: 14px;">
+                        <label>Target Range Start <input id="outageStart" value="1 MHz"/></label>
+                        <label>Target Range End <input id="outageEnd" value="100 MHz"/></label>
+                    </div>
+                    
+                    <!-- Solver Label Controls -->
+                    <div id="solverLabelControls" class="control-row" style="display: none; margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--panel-border);">
+                        <label class="form-field"><span class="field-label">Show # Parallel</span><span class="pill-toggle"><input type="checkbox" id="inclParSolver" /><span class="track"><span class="thumb"></span></span></span></label>
+                        <label><span class="label-with-tooltip">Batch Parallel Count <span class="tooltip-icon" data-tooltip="Simulates placing multiple identical capacitors in parallel.">?</span></span><select id="batchParSolver"></select></label>
+                    </div>
+                </div>
+
+                <!-- SETTINGS PANEL -->
+                <div class="panel" id="labelsPanel">
+                    <div class="panel-header">
+                        <h3 id="labelsPanelTitle">Batch Settings</h3>
+                        <button id="btnAdvancedSettings" class="icon-btn" data-tooltip="Toggle simulation model and trace parasitics">
+                            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+                        </button>
+                    </div>
+                    
+                    <div id="labelsControls" class="control-row">
+                        <label class="form-field"><span class="field-label">Show # Parallel</span><span class="pill-toggle"><input type="checkbox" id="inclPar" /><span class="track"><span class="thumb"></span></span></span></label>
+                        <label><span class="label-with-tooltip">Batch Parallel Count <span class="tooltip-icon" data-tooltip="Changes the parallel multiplier for all items in the list.">?</span></span><select id="batchPar"></select></label>
+                    </div>
+                    
+                    <!-- Advanced Simulation Settings -->
+                    <div id="advancedSettings" style="display: none; margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--panel-border);">
+                        <div class="control-row">
+                            <label class="form-field" data-tooltip="Switch between fast formula and accurate impedance simulation including traces.">
+                                <span class="field-label">Calculation Model</span>
+                                <select id="modelToggle">
+                                    <option value="complex">Complex Sim (Traces)</option>
+                                    <option value="analytical" selected>Analytical (Fast)</option>
+                                </select>
+                            </label>
+                            <label class="form-field" data-tooltip="Length of PCB trace/lead in mm.">
+                                <span class="field-label">Trace Length (mm)</span>
+                                <input id="traceLength" type="number" value="5.0" step="0.1" min="0">
+                            </label>
+                            <label class="form-field" data-tooltip="Plots a single combined curve for all visible capacitors acting together.">
+                                <span class="field-label">Combine Visible Mode</span>
+                                <span class="pill-toggle"><input type="checkbox" id="comboModeToggle" /><span class="track"><span class="thumb"></span></span></span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div id="labelsFootnote" style="font-size: 11px; color: var(--muted); margin-top: 14px;">Values represent typical MLCC components (ESR: 50mΩ, ESL: 0.5nH). You can override these per-capacitor in the Advanced row settings below.</div>
+                    
+                    <!-- Solver Results -->
+                    <div id="solverResults" style="display: none;">
+                        <div class="solver-wrap">
+                            <div class="best-card">
+                                <div class="best-title">Optimal Capacitor</div>
+                                <div id="bestCapLabel" style="display: flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 600; color: var(--text)"></div>
+                                <div id="bestAvg" class="avg-badge" style="margin-top: 12px"></div>
+                            </div>
+                            <div>
+                                <div style="font-size: 12px; font-weight: 700; color: var(--muted); margin-bottom: 6px; text-transform: uppercase;">Runners Up</div>
+                                <div id="altList" class="alt-list"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- LEGEND BAR & CHART -->
+            <div id="legendBar" class="panel legend-bar"></div>
+            <div class="panel" style="padding: 10px">
+                <div id="chart"></div>
+            </div>
+            <div style="font-size: 12px; color: var(--muted); text-align: center;">Click a curve on the chart to edit its visual properties. Use the 'Only' checkbox in the table to isolate traces.</div>
+
+            <!-- PROPERTIES MODAL -->
+            <div id="propBackdrop" class="modal-backdrop">
+                <div class="modal">
+                    <h4 id="propTitle" style="margin: 0 0 16px 0; color: var(--blue); font-family: var(--font-mono);">Curve Properties</h4>
+                    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; margin-bottom: 20px;">
+                        <label>Capacitance Value<input id="pm_value" type="number" min="0" step="0.1"/></label>
+                        <label>Unit<select id="pm_unit"><option>µF</option><option>nF</option><option>pF</option></select></label>
+                        <label>Parallel Multiplier<select id="pm_par"></select></label>
+                        <label>ESL Override (nH)<input id="pm_L" placeholder="(auto: 0.5)"/></label>
+                        <label>ESR Override (Ω)<input id="pm_R" placeholder="(auto: 0.05)"/></label>
+                        <div style="display: flex; flex-direction: column; justify-content: center; gap: 8px;">
+                            <label style="flex-direction: row; align-items: center; gap: 8px"><input id="pm_visible" type="checkbox" /> Visible on Plot</label>
+                            <label style="flex-direction: row; align-items: center; gap: 8px"><input id="pm_only" type="checkbox" /> Isolate (Hide Others)</label>
+                        </div>
+                    </div>
+                    <div style="border-top: 1px solid var(--panel-border); padding-top: 16px;">
+                        <h5 style="margin: 0 0 12px 0; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px;">Visual Styling</h5>
+                        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px;">
+                            <label>Line Color<input id="pm_color" type="color" style="height: var(--ctl-h);" /></label>
+                            <label>Line Style
+                                <select id="pm_dash">
+                                    <option value="solid">Solid</option>
+                                    <option value="dash">Dash</option>
+                                    <option value="dot">Dot</option>
+                                    <option value="dashdot">Dash Dot</option>
+                                </select>
+                            </label>
+                            <label>Line Width<input id="pm_width" type="number" min="1" max="10" step="1" /></label>
+                        </div>
+                    </div>
+                    <div class="modal-actions">
+                        <button id="pm_cancel">Cancel</button>
+                        <button id="pm_apply" class="btn-blue">Apply Changes</button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- EXPORT MODAL -->
+            <div id="exportBackdrop" class="modal-backdrop">
+                <div class="modal">
+                    <h4 style="margin: 0 0 20px 0; color: var(--text); font-family: var(--font-mono);">Export Configuration</h4>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                        <div style="grid-column: span 2;">
+                             <label>File Name<input id="exp_filename" value="attenuation_export" /></label>
+                        </div>
+                        <label>Chart Title<input id="exp_title" value="EMI Attenuation Analysis" /></label>
+                        <label>Subtitle <span style="color:var(--muted); font-weight:normal">(optional)</span><input id="exp_subtitle" placeholder="e.g. Project Alpha" /></label>
+                        <label>X-Axis Override<input id="exp_xtitle" placeholder="Frequency (Hz)" /></label>
+                        <label>Y-Axis Override<input id="exp_ytitle" placeholder="Attenuation (dB)" /></label>
+                        <label>Resolution<select id="exp_size">
+                            <option value="current">Current View (2x)</option>
+                            <option value="1080p">1920 x 1080 (HD 16:9)</option>
+                            <option value="4x3">1600 x 1200 (Standard 4:3)</option>
+                        </select></label>
+                        <div style="display:flex; align-items: flex-end; padding-bottom: 10px;">
+                            <label style="flex-direction: row; align-items:center; gap:8px;">
+                                <input type="checkbox" id="exp_gridlabels" checked /> Render Minor Grid Labels
+                            </label>
+                        </div>
+                    </div>
+                    <div class="modal-actions">
+                        <button id="exp_cancel">Cancel</button>
+                        <button id="exp_copy" class="btn-orange">Copy Image</button>
+                        <button id="exp_confirm" class="btn-blue">Download PNG</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- WELCOME MODAL -->
+            <div id="welcomeBackdrop" class="modal-backdrop">
+                <div class="modal" style="max-width: 500px; text-align: center;">
+                    <h2 style="margin: 0 0 12px; color: var(--blue); font-family: var(--font-mono);">EMI Attenuation Plotter</h2>
+                    <p style="color: var(--muted); margin-bottom: 24px; line-height: 1.6;">An interactive engineering tool for visualizing the insertion loss of passive components.</p>
+                    
+                    <div style="text-align: left; background: rgba(0,0,0,0.2); padding: 20px; border-radius: var(--radius); margin-bottom: 24px;">
+                        <ul style="margin: 0; padding-left: 20px; color: var(--text); line-height: 1.8; font-size: 14px;">
+                            <li>Plot ideal vs. parasitic frequency responses.</li>
+                            <li>Use <b>Solver Mode</b> to automatically find the best capacitance for a target noise band.</li>
+                            <li>Toggle <b>Combination Mode</b> to view parallel arrays.</li>
+                            <li>Export high-resolution charts for documentation.</li>
+                        </ul>
+                    </div>
+
+                    <div style="display: flex; gap: 12px; justify-content: center;">
+                        <button id="welcomeStart" class="btn-blue" style="width: 100%;">Enter Tool</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- CAPACITOR TABLE -->
+            <div class="panel" id="capacitorTableContainer">
+                <h3 style="margin-bottom: 16px;">Component Data Table</h3>
+                
+                <div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px solid var(--panel-border);">
+                    <label style="flex-direction: row; align-items: center;"><span style="margin-right: 8px">Batch Parallel:</span><select id="batchPar2"></select></label>
+                    <div style="flex: 1"></div>
+                    <button id="addRow" class="btn-blue">+ Add Capacitor</button>
+                    <button id="showAll">Show All</button>
+                    <button id="clearAllCaps">Clear List</button>
+                </div>
+                
+                <div id="emptyState" style="display: none">
+                    <div class="empty-state">
+                        <div style="font-size: 16px; font-weight: 600; color: var(--text); margin-bottom: 8px;">No Components Active</div>
+                        <p>Click <strong>+ Add Capacitor</strong> to begin plotting curves.</p>
+                    </div>
+                </div>
+                
+                <table>
+                    <thead>
+                        <tr>
+                            <th style="width: 50px;">#</th>
+                            <th style="width: 60px;">Color</th>
+                            <th>Properties</th>
+                            <th style="width: 60px; text-align: center;">Only</th>
+                            <th style="width: 150px; text-align: right;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="capBody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- JAVASCRIPT LOGIC -->
+        <script>
+            (function () {
+                const $ = (sel) => document.querySelector(sel);
+                const $$ = (sel) => Array.from(document.querySelectorAll(sel));
+                const clamp = (v, lo, hi) => Math.min(Math.max(v, lo), hi);
+
+                function parseFrequency(str) {
+                    if (!str) return NaN;
+                    str = String(str).trim().toLowerCase();
+                    if (/^[-+]?\d+(?:\.\d+)?e[-+]?\d+$/.test(str)) return parseFloat(str);
+                    const m = str.match(/([-+]?\d*\.?\d+)\s*([kmg]?)/i);
+                    if (!m) return NaN;
+                    let v = parseFloat(m[1]);
+                    const u = (m[2] || "").toLowerCase();
+                    if (u === "g") v *= 1e9;
+                    else if (u === "m") v *= 1e6;
+                    else if (u === "k") v *= 1e3;
+                    return v;
+                }
+
+                function parseCapString(str) {
+                    str = String(str).trim().replace(/μ/g, "µ");
+                    const m = str.match(/(\d*\.?\d+)\s*(µF|uF|nF|pF)/i);
+                    if (!m) return null;
+                    let value = parseFloat(m[1]);
+                    let unit = m[2].replace(/uF/i, "µF");
+                    return { value, unit: unit === "uF" ? "µF" : unit };
+                }
+
+                function valueUnitToPF(value, unit) {
+                    if (unit === "µF") return value * 1e6;
+                    if (unit === "nF") return value * 1e3;
+                    return value;
+                }
+
+                function logspace(f1, f2, n) {
+                    const a = Math.log10(f1), b = Math.log10(f2);
+                    const step = (b - a) / (n - 1);
+                    return Array.from({ length: n }, (_, i) => Math.pow(10, a + i * step));
+                }
+
+                const Complex = {
+                    add: (a, b) => ({ re: a.re + b.re, im: a.im + b.im }),
+                    multiply: (a, b) => ({ re: a.re * b.re - a.im * b.im, im: a.re * b.im + a.im * b.re }),
+                    divide: (a, b) => {
+                        const denom = b.re * b.re + b.im * b.im;
+                        return { re: (a.re * b.re + a.im * b.im) / denom, im: (a.im * b.re - a.re * b.im) / denom };
+                    },
+                    magnitude: (a) => Math.sqrt(a.re * a.re + a.im * a.im)
+                };
+
+                // Generic Base Constants (Standard MLCC)
+                const DEFAULT_ESR = 0.05; // 50 mOhms
+                const DEFAULT_ESL_NH = 0.5; // 0.5 nH
+                
+                const colors =["#0ea5ff","#ff4455","#a3e635","#c084fc","#f97316","#22c55e","#67e8f9","#f472b6","#f87171","#34d399","#fbbf24","#eab308"];
+                const defaultCaps =["4.7µF","2.2µF","1µF","470nF","100nF","47nF","10nF","4.7nF","1nF","470pF","100pF","47pF"];
+
+                let state = {
+                    startHz: 1e3,
+                    endHz: 1e10,
+                    points: 2700,
+                    caps:[],
+                    solver: false,
+                    comboMode: false,
+                    bestCapIndex: null,
+                    calculationModel: 'analytical',
+                    traceLength_mm: 5.0,
+                    traceResistance_mOhm: 20,
+                };
+
+                function effR(c) {
+                    if (c.R_override != null && c.R_override !== "") return Number(c.R_override);
+                    return DEFAULT_ESR / Math.max(1, c.parCaps);
+                }
+                
+                function effL(c) {
+                    return c.L_override_nH != null && c.L_override_nH !== "" ? Number(c.L_override_nH) : DEFAULT_ESL_NH;
+                }
+                
+                function effC_pf(c) {
+                    return c.pf * c.parCaps;
+                }
+
+                function getCapacitorImpedance(c, f) {
+                    const w = 2 * Math.PI * f;
+                    const R = effR(c);
+                    const L = effL(c) * 1e-9;
+                    const C = effC_pf(c) * 1e-12;
+                    const X = w * L - 1 / (w * C);
+                    return { re: R, im: X };
+                }
+
+                function calculateAttenuation_Analytical(Z_shunt) {
+                    const Z0_eff = 25;
+                    const numerator_mag_sq = Z_shunt.re ** 2 + Z_shunt.im ** 2;
+                    const denominator_mag_sq = (Z_shunt.re + Z0_eff) ** 2 + Z_shunt.im ** 2;
+                    if (denominator_mag_sq === 0) return 0;
+                    return -10 * Math.log10(numerator_mag_sq / denominator_mag_sq);
+                }
+
+                function calculateAttenuation_ComplexSim(Z_shunt) {
+                    const R_source = { re: 50, im: 0 };
+                    const R_load = { re: 50, im: 0 };
+                    const Z_parallel = Complex.divide(Complex.multiply(Z_shunt, R_load), Complex.add(Z_shunt, R_load));
+                    const H = Complex.divide(Z_parallel, Complex.add(R_source, Z_parallel));
+                    const mag = Complex.magnitude(H);
+                    if (mag === 0) return 200;
+                    return -20 * Math.log10(2 * mag);
+                }
+
+                function labelFor(c, useSolverToggles = false) {
+                    const showPar = useSolverToggles ? $("#inclParSolver").checked : $("#inclPar").checked;
+                    let label = `${c.value}${c.unit}`;
+                    if (showPar) label += ` (${c.parCaps}x)`;
+                    return label;
+                }
+
+                function plot() {
+                    const startFreq = parseFrequency($("#startHz").value) || 1e3;
+                    const endFreq = parseFrequency($("#endHz").value) || 1e10;
+                    const points = clamp(parseInt($("#pointsNum").value || 1000, 10), 50, 3000);
+                    const freqs = logspace(startFreq, endFreq, points);
+
+                    let traces =[];
+                    const hasOnly = state.caps.some((c) => c.only);
+                    const activeCaps = state.caps.filter((c) => hasOnly ? c.only : c.visible);
+
+                    if (state.comboMode) {
+                        if (activeCaps.length > 0) {
+                            const y_values = freqs.map((f) => {
+                                let Y_total = { re: 0, im: 0 };
+                                activeCaps.forEach((c) => {
+                                    const Z_i = getCapacitorImpedance(c, f);
+                                    const mag_sq_i = Z_i.re ** 2 + Z_i.im ** 2;
+                                    if (mag_sq_i > 0) {
+                                        Y_total.re += Z_i.re / mag_sq_i;
+                                        Y_total.im += -Z_i.im / mag_sq_i;
+                                    }
+                                });
+                                const mag_sq_total_y = Y_total.re ** 2 + Y_total.im ** 2;
+                                let Z_total = { re: 0, im: 0 };
+                                if (mag_sq_total_y > 0) {
+                                    Z_total.re = Y_total.re / mag_sq_total_y;
+                                    Z_total.im = -Y_total.im / mag_sq_total_y;
+                                }
+                                if (state.calculationModel === 'complex') {
+                                    return calculateAttenuation_ComplexSim(Z_total);
+                                } else {
+                                    return calculateAttenuation_Analytical(Z_total);
+                                }
+                            });
+                            traces.push({ x: freqs, y: y_values, name: `Parallel Array (${activeCaps.length})`, mode: "lines", line: { width: 3, color: "var(--orange)" } });
+                        }
+                    } else {
+                        traces = activeCaps.map((c) => {
+                            const isBest = state.solver && state.caps.indexOf(c) === state.bestCapIndex;
+                            const y_values = freqs.map((f) => {
+                                if (state.calculationModel === 'complex') {
+                                    const cap_Z = getCapacitorImpedance(c, f);
+                                    const trace_R = (2 * state.traceResistance_mOhm / 1000) / c.parCaps;
+                                    const trace_L = (2 * state.traceLength_mm * 0.4e-9) / c.parCaps;
+                                    const w = 2 * Math.PI * f;
+                                    const trace_Z = { re: trace_R, im: w * trace_L };
+                                    const total_shunt_Z = Complex.add(cap_Z, trace_Z);
+                                    return calculateAttenuation_ComplexSim(total_shunt_Z);
+                                } else {
+                                    return calculateAttenuation_Analytical(getCapacitorImpedance(c, f));
+                                }
+                            });
+
+                            let lineWidth = 2;
+                            let lineColor = c.color;
+                            let lineDash = "solid";
+
+                            if (state.solver) {
+                                lineWidth = isBest ? 4 : 2;
+                                lineDash = isBest ? "dash" : "solid";
+                            } else {
+                                lineWidth = c.line_width || 2;
+                                lineColor = c.color_override || c.color;
+                                lineDash = c.line_dash || "solid";
+                            }
+
+                            return { 
+                                x: freqs, y: y_values, name: labelFor(c, state.solver), 
+                                mode: "lines", line: { width: lineWidth, color: lineColor, dash: lineDash }, 
+                                meta: state.caps.indexOf(c) 
+                            };
+                        });
+                    }
+
+                    const cs = getComputedStyle(document.body);
+                    const paper = (cs.getPropertyValue("--panel") || "#2B2E33").trim();
+                    const text = (cs.getPropertyValue("--text") || "#F4F7F6").trim();
+                    const grid = "rgba(255,255,255,0.08)";
+                    const minorGridColor = "rgba(255,255,255,0.03)";
+                    const minorLabelColor = "rgba(255,255,255,0.4)";
+
+                    function fmtHz(v) {
+                        if (!Number.isFinite(v)) return '';
+                        if (v >= 1e9) return (v / 1e9).toString().replace(/\.0+$/, '') + 'G';
+                        if (v >= 1e6) return (v / 1e6).toString().replace(/\.0+$/, '') + 'M';
+                        if (v >= 1e3) return (v / 1e3).toString().replace(/\.0+$/, '') + 'k';
+                        return v.toString();
+                    }
+
+                    let y_max_final = 50;
+                    const y_max_actual = traces.reduce((max, trace) => {
+                        if (trace.y && trace.y.length > 0) return Math.max(max, ...trace.y);
+                        return max;
+                    }, 0);
+                    if (y_max_actual > 50) y_max_final = Math.ceil(y_max_actual / 5) * 5; 
+
+                    const layout = {
+                        title: { text: state.comboMode ? "Array Combined Attenuation" : "", font: { color: text, size: 16 } },
+                        paper_bgcolor: paper, plot_bgcolor: paper, font: { color: text },
+                        margin: { l: 60, r: 20, t: state.comboMode ? 50 : 20, b: 60 },
+                        xaxis: {
+                            type: "log", title: "Frequency (Hz)", gridcolor: grid, gridwidth: 1, tickformat: "~s",
+                            showline: true, linewidth: 1, linecolor: grid, minor: { showgrid: true, gridwidth: 1, gridcolor: minorGridColor },
+                            range:[Math.log10(startFreq), Math.log10(endFreq)], automargin: true, tickangle: 0
+                        },
+                        yaxis: { title: "Attenuation (dB)", gridcolor: grid, gridwidth: 1, zeroline: false, showline: true, linewidth: 1, linecolor: grid, minor: { showgrid: true, gridwidth: 1, gridcolor: minorGridColor }, range: [0, y_max_final], nticks: 10 },
+                        showlegend: false, annotations:[]
+                    };
+
+                    try {
+                        const minExp = Math.floor(Math.log10(startFreq));
+                        const maxExp = Math.ceil(Math.log10(endFreq));
+                        const minorTicks =[];
+                        for (let e = minExp; e <= maxExp; e++) {
+                            const decade = Math.pow(10, e);
+                            for (let m = 2; m <= 9; m++) {
+                                const v = m * decade;
+                                if (v >= startFreq && v <= endFreq) minorTicks.push(v);
+                            }
+                        }
+                        layout.annotations = minorTicks.map((v) => ({
+                            x: v, xref: 'x', y: -0.04, yref: 'paper', text: fmtHz(v),
+                            showarrow: false, xanchor: 'center', yanchor: 'top', font: { size: 9, color: minorLabelColor }
+                        }));
+                    } catch (err) { layout.annotations =[]; }
+
+                    if (state.solver) {
+                        const fs = parseFrequency($("#outageStart").value), fe = parseFrequency($("#outageEnd").value);
+                        if (Number.isFinite(fs) && Number.isFinite(fe) && fs > 0 && fe > 0) {
+                            const fmin_outage = Math.min(fs, fe), fmax_outage = Math.max(fs, fe);
+                            const overlay_color = "rgba(59, 113, 151, 0.2)";
+                            layout.shapes =[
+                                { type: "rect", xref: "x", yref: "paper", x0: startFreq, x1: fmin_outage, y0: 0, y1: 1, fillcolor: "rgba(0,0,0,0.4)", line: { width: 0 }, layer: "below" },
+                                { type: "rect", xref: "x", yref: "paper", x0: fmax_outage, x1: endFreq, y0: 0, y1: 1, fillcolor: "rgba(0,0,0,0.4)", line: { width: 0 }, layer: "below" },
+                                { type: "rect", xref: "x", yref: "paper", x0: fmin_outage, x1: fmax_outage, y0: 0, y1: 1, fillcolor: overlay_color, line: { width: 0 }, layer: "below" }
+                            ];
+                        }
+                    }
+                    Plotly.react("chart", traces, layout, { responsive: true, displaylogo: false });
+                }
+
+                function buildLegend() {
+                    const bar = $("#legendBar");
+                    bar.innerHTML = "";
+                    if (state.comboMode) {
+                        const hasOnly = state.caps.some((x) => x.only);
+                        const activeCount = state.caps.filter((c) => hasOnly ? c.only : c.visible).length;
+                        if (activeCount > 0) {
+                            const item = document.createElement("span");
+                            item.className = "legend-item";
+                            item.innerHTML = `<span class="chip" style="background:var(--orange)"></span>Parallel Array (${activeCount})`;
+                            bar.appendChild(item);
+                        }
+                        return;
+                    }
+
+                    state.caps.forEach((c, i) => {
+                        const hasOnly = state.caps.some((x) => x.only);
+                        const hidden = hasOnly ? !c.only : !c.visible;
+                        const item = document.createElement("span");
+                        item.className = "legend-item" + (hidden ? " hidden" : "");
+                        item.dataset.index = i;
+                        const displayColor = c.color_override || c.color;
+                        item.innerHTML = `<span class="chip" style="background:${displayColor}"></span>${labelFor(c, state.solver)}`;
+                        item.onclick = () => {
+                            if (state.caps.some((x) => x.only)) {
+                                c.only = !c.only;
+                                const chk = document.querySelector(`tr[data-index="${i}"] .cap-only`);
+                                if (chk) chk.checked = c.only;
+                            } else {
+                                c.visible = !c.visible;
+                                const btn = document.querySelector(`tr[data-index="${i}"] .cap-hide`);
+                                if (btn) btn.textContent = c.visible ? "Hide" : "Show";
+                            }
+                            if (state.solver) computeAndRenderSolver();
+                            else { plot(); buildLegend(); }
+                        };
+                        bar.appendChild(item);
+                    });
+                }
+
+                function addRowDOM(idx, c) {
+                    const tr = document.createElement("tr");
+                    tr.dataset.index = idx;
+                    tr.draggable = true;
+                    const displayColor = c.color_override || c.color;
+                    
+                    tr.innerHTML = `
+                      <td style="color:var(--muted)"><span class="drag-handle">⋮⋮</span>${idx + 1}</td>
+                      <td><span class="chip" style="background:${displayColor}"></span></td>
+                      <td>
+                        <div class="cap-input-grid">
+                          <input type="number" min="0" step="0.1" class="cap-num" value="${c.value}">
+                          <select class="cap-unit"><option value="µF" ${c.unit === "µF" ? "selected" : ""}>µF</option><option value="nF" ${c.unit === "nF" ? "selected" : ""}>nF</option><option value="pF" ${c.unit === "pF" ? "selected" : ""}>pF</option></select>
+                          <select class="cap-par-main" title="Parallel Count">${Array.from({ length: 6 }, (_, i) => `<option value="${i + 1}" ${c.parCaps === i + 1 ? "selected" : ""}>${i + 1}x</option>`).join("")}</select>
+                          <button class="adv-btn" data-tooltip="Advanced component overrides">⚙️ Edit</button>
+                        </div>
+                      </td>
+                      <td style="text-align:center"><input type="checkbox" class="cap-only" ${c.only ? "checked" : ""}></td>
+                      <td style="text-align:right">
+                        <button class="cap-hide">${c.visible ? "Hide" : "Show"}</button>
+                        <button class="cap-del" style="color: var(--orange)">Remove</button>
+                      </td>`;
+
+                    const adv = document.createElement("tr");
+                    adv.className = "adv-row";
+                    adv.dataset.index = idx + "-adv";
+                    adv.style.display = "none";
+                    adv.innerHTML = `<td></td><td colspan="4" style="background: rgba(0,0,0,0.25); border-radius: 0 0 8px 8px; border-top: none;">
+                        <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));gap:14px; margin-bottom:12px;">
+                          <div><label>ESL Override (nH)</label><input class="cap-L" placeholder="(auto ${effL(c)})" value="${c.L_override_nH ?? ""}"></div>
+                          <div><label>ESR Override (Ω)</label><input class="cap-R" placeholder="(auto ${effR(c).toPrecision(3)})" value="${c.R_override ?? ""}"></div>
+                        </div>
+                        <div style="border-top:1px solid rgba(255,255,255,0.05); padding-top:12px; display:grid;grid-template-columns:repeat(auto-fit, minmax(140px, 1fr));gap:14px;">
+                          <div><label>Color</label><input type="color" class="cap-color" value="${c.color_override || c.color}" style="height:38px"></div>
+                          <div><label>Line Style</label>
+                            <select class="cap-dash">
+                                <option value="solid" ${c.line_dash === "solid" ? "selected" : ""}>Solid</option>
+                                <option value="dash" ${c.line_dash === "dash" ? "selected" : ""}>Dash</option>
+                                <option value="dot" ${c.line_dash === "dot" ? "selected" : ""}>Dot</option>
+                            </select>
+                          </div>
+                          <div><label>Line Width</label><input type="number" class="cap-width" min="1" max="10" value="${c.line_width || 2}"></div>
+                        </div>
+                      </td>`;
+                    $("#capBody").appendChild(tr);
+                    $("#capBody").appendChild(adv);
+                }
+
+                function renderCaps() {
+                    const tb = $("#capBody");
+                    const table = tb.closest("table");
+                    const emptyState = $("#emptyState");
+
+                    if (state.caps.length === 0) {
+                        table.style.display = "none";
+                        emptyState.style.display = "block";
+                    } else {
+                        table.style.display = "";
+                        emptyState.style.display = "none";
+                    }
+
+                    tb.innerHTML = "";
+                    state.caps.forEach((c, i) => addRowDOM(i, c));
+                    bindRowEvents();
+                }
+                
+                function refreshCapColors() {
+                    state.caps.forEach((c, i) => c.color = colors[i % colors.length]);
+                }
+
+                function bindRowEvents() {
+                    state.caps.forEach((c, i) => {
+                        const tr = document.querySelector(`tr[data-index="${i}"]`);
+                        const adv = document.querySelector(`tr[data-index="${i}-adv"]`);
+                        if (!tr || !adv) return;
+                        
+                        const updateUI = () => { if (state.solver) computeAndRenderSolver(); else { plot(); buildLegend(); } };
+                        const updatePlotOnly = () => { if (!state.solver) { plot(); buildLegend(); } };
+
+                        tr.querySelector(".cap-num").onchange = (e) => { c.value = parseFloat(e.target.value) || 0; c.pf = valueUnitToPF(c.value, c.unit); updateUI(); };
+                        tr.querySelector(".cap-unit").onchange = (e) => { c.unit = e.target.value; c.pf = valueUnitToPF(c.value, c.unit); updateUI(); };
+                        tr.querySelector(".cap-par-main").onchange = (e) => { c.parCaps = parseInt(e.target.value, 10) || 1; adv.querySelector(".cap-R").placeholder = `(auto ${effR(c).toPrecision(3)})`; updateUI(); };
+                        tr.querySelector(".cap-only").onchange = (e) => { c.only = e.target.checked; updateUI(); };
+                        tr.querySelector(".cap-hide").onclick = () => { c.visible = !c.visible; tr.querySelector(".cap-hide").textContent = c.visible ? "Hide" : "Show"; updateUI(); };
+                        tr.querySelector(".cap-del").onclick = () => { state.caps.splice(i, 1); refreshCapColors(); renderCaps(); updateUI(); };
+                        tr.querySelector(".adv-btn").onclick = () => { adv.style.display = adv.style.display === "table-row" ? "none" : "table-row"; };
+                        
+                        adv.querySelector(".cap-L").onchange = (e) => { const v = e.target.value.trim(); c.L_override_nH = v === "" ? null : Number(v); updateUI(); };
+                        adv.querySelector(".cap-R").onchange = (e) => { const v = e.target.value.trim(); c.R_override = v === "" ? null : Number(v); updateUI(); };
+                        adv.querySelector(".cap-color").oninput = (e) => { c.color_override = e.target.value; updatePlotOnly(); };
+                        adv.querySelector(".cap-color").onchange = () => renderCaps(); 
+                        adv.querySelector(".cap-dash").onchange = (e) => { c.line_dash = e.target.value; updatePlotOnly(); };
+                        adv.querySelector(".cap-width").onchange = (e) => { c.line_width = parseInt(e.target.value, 10) || 2; updatePlotOnly(); };
+                    });
+                }
+
+                let pmIndex = null; 
+                const pmBackdrop = () => $("#propBackdrop");
+
+                function openPropFor(i) {
+                    pmIndex = i;
+                    const c = state.caps[i];
+                    if (!c) return;
+                    $("#pm_value").value = c.value;
+                    $("#pm_unit").value = c.unit;
+                    
+                    const parSel = $("#pm_par");
+                    parSel.innerHTML = Array.from({ length: 6 }, (_, k) => `<option value="${k + 1}">${k + 1}x</option>`).join("");
+                    parSel.value = String(c.parCaps);
+
+                    const Lin = $("#pm_L"), Rin = $("#pm_R");
+                    Lin.placeholder = `(auto ${effL(c)})`;
+                    Rin.placeholder = `(auto ${effR(c).toPrecision(3)})`;
+                    Lin.value = c.L_override_nH ?? "";
+                    Rin.value = c.R_override ?? "";
+                    
+                    $("#pm_visible").checked = !!c.visible;
+                    $("#pm_only").checked = !!c.only;
+                    $("#pm_color").value = c.color_override || c.color;
+                    $("#pm_dash").value = c.line_dash || "solid";
+                    $("#pm_width").value = c.line_width || 2;
+
+                    $("#propTitle").textContent = `Edit Trace: ${labelFor(c)}`;
+                    pmBackdrop().style.display = "flex";
+                }
+
+                function closeProp() {
+                    pmBackdrop().style.display = "none";
+                    pmIndex = null;
+                }
+                
+                function setSolverUI(on) {
+                    state.solver = !!on;
+                    const btn = $("#btnSolver");
+                    btn.textContent = on ? "Exit Solver" : "Solver Mode";
+                    if(on) btn.classList.replace("btn-blue", "btn-orange");
+                    else btn.classList.replace("btn-orange", "btn-blue");
+
+                    $(".title").innerHTML = on ? "EMI <span>Attenuation Solver</span>" : "EMI <span>Attenuation Plotter</span>";
+                    $("#freqPanelTitle").textContent = on ? "Target Optimization Range" : "Frequency & Resolution";
+                    $("#outageUI").style.display = on ? "grid" : "none";
+                    $("#freqControls").style.display = on ? "none" : "grid";
+                    $("#freqHint").style.display = on ? "none" : "block";
+                    $("#pointsRange").style.display = on ? "none" : "block";
+                    $("#labelsPanelTitle").textContent = on ? "Solver Results" : "Batch Settings";
+                    $("#solverResults").style.display = on ? "block" : "none";
+                    $("#labelsControls").style.display = on ? "none" : "grid";
+                    $("#labelsFootnote").style.display = on ? "none" : "block";
+                    $("#solverLabelControls").style.display = on ? "grid" : "none";
+                }
+
+                function enterSolverMode() {
+                    if (state.comboMode) { state.comboMode = false; $("#comboModeToggle").checked = false; }
+                    setSolverUI(true);
+                    computeAndRenderSolver();
+                }
+
+                function exitSolverMode() {
+                    state.bestCapIndex = null;
+                    setSolverUI(false);
+                    plot();
+                    buildLegend();
+                }
+
+                function computeAndRenderSolver() {
+                    const freqs = logspace(parseFrequency($("#startHz").value), parseFrequency($("#endHz").value), parseInt($("#pointsNum").value, 10));
+                    let fs = parseFrequency($("#outageStart").value), fe = parseFrequency($("#outageEnd").value);
+                    state.bestCapIndex = null;
+                    $("#bestCapLabel").innerHTML = "—";
+                    $("#bestAvg").textContent = "...";
+                    $("#altList").innerHTML = "";
+
+                    if (!Number.isFinite(fs) || !Number.isFinite(fe)) { plot(); buildLegend(); return; }
+
+                    let idxs =[];
+                    const fmin = Math.min(fs, fe), fmax = Math.max(fs, fe);
+                    if (fmin === fmax) {
+                        let closest_dist = Infinity, closest_idx = -1;
+                        freqs.forEach((f, i) => { const dist = Math.abs(f - fmin); if (dist < closest_dist) { closest_dist = dist; closest_idx = i; } });
+                        if (closest_idx !== -1) idxs = [closest_idx];
+                    } else {
+                        idxs = freqs.map((f, i) => (f >= fmin && f <= fmax ? i : -1)).filter((i) => i !== -1);
+                    }
+
+                    if (idxs.length > 0) {
+                        const avgs = state.caps.map((c, index) => {
+                            let sum = 0;
+                            for (const i of idxs) {
+                                if (state.calculationModel === 'complex') {
+                                    const cap_Z = getCapacitorImpedance(c, freqs[i]);
+                                    const trace_R = (2 * state.traceResistance_mOhm / 1000) / c.parCaps;
+                                    const trace_L = (2 * state.traceLength_mm * 0.4e-9) / c.parCaps;
+                                    const w = 2 * Math.PI * freqs[i];
+                                    const trace_Z = { re: trace_R, im: w * trace_L };
+                                    const total_shunt_Z = Complex.add(cap_Z, trace_Z);
+                                    sum += calculateAttenuation_ComplexSim(total_shunt_Z);
+                                } else {
+                                    sum += calculateAttenuation_Analytical(getCapacitorImpedance(c, freqs[i]));
+                                }
+                            }
+                            return { cap: c, avg: sum / idxs.length, originalIndex: index };
+                        });
+
+                        avgs.sort((a, b) => b.avg - a.avg);
+                        const best = avgs[0];
+                        state.bestCapIndex = best.originalIndex;
+                        const others = avgs.slice(1).filter((x) => x.avg > 0).slice(0, 4);
+                        const bestLbl = labelFor(best.cap, true);
+                        const avgLabel = fmin === fmax ? "Attenuation at single point:" : "Average attenuation:";
+                        $("#bestCapLabel").innerHTML = `<span class="chip" style="background:${best.cap.color}"></span><span>${bestLbl}</span>`;
+                        $("#bestAvg").textContent = `${avgLabel} ${best.avg.toFixed(2)} dB`;
+                        const list = $("#altList");
+                        if (others.length === 0) { list.innerHTML = '<div style="font-size:12px;color:var(--muted)">No additional options.</div>'; }
+                        else { others.forEach((o) => { const lbl = labelFor(o.cap, true); const row = document.createElement("div"); row.className = "alt-item"; row.innerHTML = `<span style="display:flex;align-items:center;gap:10px"><span class="chip" style="background:${o.cap.color}"></span>${lbl}</span><span>${o.avg.toFixed(2)} dB</span>`; list.appendChild(row); }); }
+                    }
+                    plot();
+                    buildLegend();
+                }
+
+                const exportBackdrop = () => $("#exportBackdrop");
+                function openExportModal() { exportBackdrop().style.display = "flex"; }
+                function closeExportModal() { exportBackdrop().style.display = "none"; }
+
+                async function generateExportCanvas() {
+                    const chartEl = document.getElementById("chart");
+                    
+                    const customTitle = $("#exp_title").value;
+                    const customSubtitle = $("#exp_subtitle").value;
+                    const xTitleOverride = $("#exp_xtitle").value;
+                    const yTitleOverride = $("#exp_ytitle").value;
+                    const showGridLabels = $("#exp_gridlabels").checked;
+                    const sizeMode = $("#exp_size").value;
+
+                    const m = 1.75; 
+
+                    const oldAnnotations = chartEl.layout.annotations ||[];
+                    const oldXTitle = chartEl.layout.xaxis?.title?.text || "Frequency (Hz)";
+                    const oldYTitle = chartEl.layout.yaxis?.title?.text || "Attenuation (dB)";
+                    const oldPlotTitle = chartEl.layout.title?.text || "";
+                    const oldFontSize = chartEl.layout.font?.size || 12;
+                    const oldMarginL = chartEl.layout.margin?.l || 60;
+                    const oldMarginB = chartEl.layout.margin?.b || 60;
+
+                    let newAnnotations = showGridLabels ? oldAnnotations : oldAnnotations.filter(a => a.y !== -0.04);
+                    newAnnotations = newAnnotations.map(a => ({ ...a, font: { ...a.font, size: (a.font?.size || 11) * m } }));
+
+                    await Plotly.relayout(chartEl, {
+                        'xaxis.title.text': xTitleOverride || oldXTitle,
+                        'yaxis.title.text': yTitleOverride || oldYTitle,
+                        'annotations': newAnnotations,
+                        'title.text': '', 
+                        'font.size': oldFontSize * m,
+                        'margin.l': oldMarginL + (40 * m), 
+                        'margin.b': oldMarginB + (30 * m)
+                    });
+
+                    try {
+                        let targetWidth = 0, targetTotalHeight = 0, plotScale = 1; 
+                        
+                        if (sizeMode === "current") { targetWidth = chartEl.clientWidth * 2; } 
+                        else if (sizeMode === "1080p") { targetWidth = 1920; targetTotalHeight = 1080; } 
+                        else if (sizeMode === "4x3") { targetWidth = 1600; targetTotalHeight = 1200; }
+
+                        const cs = getComputedStyle(document.body);
+                        const panelBg = (cs.getPropertyValue("--panel") || "#2B2E33").trim();
+                        const textColor = (cs.getPropertyValue("--text") || "#F4F7F6").trim();
+                        const pageBg = (cs.getPropertyValue('--bg') || '#1E2022').trim();
+                        
+                        const outerMargin = Math.max(20, targetWidth * 0.02);
+                        const gap = Math.max(12, targetWidth * 0.01);
+                        
+                        const ctxMeas = document.createElement('canvas').getContext('2d');
+                        let headerHeight = 0;
+                        if (customTitle || customSubtitle) {
+                            headerHeight += outerMargin; 
+                            if (customTitle) headerHeight += 40 * m; 
+                            if (customSubtitle) headerHeight += 24 * m; 
+                            headerHeight += gap; 
+                        } else headerHeight = outerMargin;
+
+                        const hasOnly = state.caps.some((c) => c.only);
+                        const active = state.caps.filter((c) => hasOnly ? c.only : c.visible);
+                        
+                        let labels =[];
+                        if (state.comboMode) {
+                            if (active.length > 0) labels =[{ text: `Array (${active.length} caps)`, color: "var(--orange)", visible: true }];
+                        } else {
+                            labels = active.map((c) => ({ text: labelFor(c, state.solver), color: c.color_override || c.color, visible: c.visible }));
+                        }
+                        
+                        const legendInnerWidth = targetWidth - (outerMargin * 2) - (24 * m);
+                        ctxMeas.font = `${14 * m}px Inter, sans-serif`;
+                        
+                        let rows = [[]], curW = 0;
+                        const chipSize = 14 * m, pillPadX = 20 * m, gapX = 10 * m;
+                        
+                        labels.forEach(item => {
+                            const textW = ctxMeas.measureText(item.text).width;
+                            const pillW = chipSize + (6 * m) + textW + pillPadX;
+                            const totalPillW = pillW + (rows[rows.length - 1].length > 0 ? gapX : 0);
+                            if (curW + totalPillW > legendInnerWidth && rows[rows.length - 1].length > 0) { rows.push([]); curW = 0; }
+                            rows[rows.length - 1].push({ ...item, w: pillW });
+                            curW += totalPillW;
+                        });
+                        
+                        const legendH = labels.length === 0 ? 0 : ((24 * m) + rows.length * (chipSize + (12 * m)) + (rows.length - 1) * (10 * m));
+                        const activeGap = labels.length === 0 ? 0 : gap;
+
+                        let chartH = 0;
+                        if (targetTotalHeight > 0) chartH = targetTotalHeight - headerHeight - legendH - activeGap - outerMargin;
+                        else chartH = targetWidth * (chartEl.clientHeight / chartEl.clientWidth);
+
+                        const dataUrl = await Plotly.toImage(chartEl, { format: "png", width: targetWidth - (outerMargin * 2), height: chartH, scale: plotScale });
+                        const img = new Image();
+                        img.src = dataUrl;
+                        await new Promise((res) => { img.onload = res; });
+
+                        const canvas = document.createElement('canvas');
+                        canvas.width = targetWidth; canvas.height = headerHeight + legendH + activeGap + chartH + outerMargin;
+                        const ctx = canvas.getContext('2d');
+                        
+                        ctx.fillStyle = pageBg; ctx.fillRect(0, 0, canvas.width, canvas.height);
+                        let currentY = outerMargin;
+                        ctx.textAlign = "center"; ctx.fillStyle = textColor;
+                        
+                        if (customTitle) { ctx.font = `bold ${28 * m}px Inter, sans-serif`; ctx.fillText(customTitle, canvas.width / 2, currentY + (24 * m)); currentY += (36 * m); }
+                        if (customSubtitle) { ctx.font = `${18 * m}px Inter, sans-serif`; ctx.fillStyle = "#A0AAB2"; ctx.fillText(customSubtitle, canvas.width / 2, currentY + (18 * m)); currentY += (24 * m) + gap; } 
+                        else if (customTitle) currentY += gap;
+
+                        function roundRect(x, y, w, h, r, fill, stroke) {
+                            ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+                            ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+                            if (fill) { ctx.fillStyle = fill; ctx.fill(); }
+                            if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = 2; ctx.stroke(); }
+                        }
+
+                        if (labels.length > 0) {
+                            const legendY = currentY, legendX = outerMargin, legendW = targetWidth - outerMargin * 2;
+                            roundRect(legendX, legendY, legendW, legendH, 12 * m, panelBg, "rgba(255,255,255,0.05)");
+                            
+                            ctx.font = `${14 * m}px Inter, sans-serif`; ctx.textAlign = "left"; ctx.textBaseline = "middle";
+                            let rowY = legendY + (12 * m) + (chipSize + (12 * m))/2;
+                            
+                            rows.forEach((row) => {
+                                let x = legendX + (12 * m);
+                                row.forEach(it => {
+                                    const pillH = chipSize + (12 * m), pillR = pillH / 2;
+                                    ctx.save();
+                                    if (!it.visible) ctx.globalAlpha = 0.45;
+                                    roundRect(x, rowY - pillH/2, it.w, pillH, pillR, "rgba(0,0,0,0.2)", "rgba(255,255,255,0.1)");
+                                    ctx.fillStyle = it.color;
+                                    roundRect(x + (10 * m), rowY - chipSize/2, chipSize, chipSize, 5, it.color, null);
+                                    ctx.fillStyle = textColor;
+                                    ctx.fillText(it.text, x + (10 * m) + chipSize + (6 * m), rowY);
+                                    ctx.restore();
+                                    x += it.w + gapX;
+                                });
+                                rowY += chipSize + (12 * m) + (10 * m);
+                            });
+                            currentY += legendH + gap;
+                        }
+
+                        const cardX = outerMargin, cardY = currentY, cardW = targetWidth - outerMargin * 2, cardH = img.height; 
+                        roundRect(cardX, cardY, cardW, cardH, 14 * m, panelBg, "rgba(255,255,255,0.05)");
+                        ctx.save(); roundRect(cardX, cardY, cardW, cardH, 14 * m); ctx.clip(); ctx.drawImage(img, cardX, cardY, cardW, cardH); ctx.restore();
+                        return canvas;
+                    } finally {
+                        await Plotly.relayout(chartEl, { 'xaxis.title.text': oldXTitle, 'yaxis.title.text': oldYTitle, 'annotations': oldAnnotations, 'title.text': oldPlotTitle, 'font.size': oldFontSize, 'margin.l': oldMarginL, 'margin.b': oldMarginB });
+                    }
+                }
+
+                async function doExport(mode) {
+                    const btnConfirm = $("#exp_confirm"), btnCopy = $("#exp_copy");
+                    const oldConfirmTxt = btnConfirm.textContent, oldCopyTxt = btnCopy.textContent;
+                    
+                    if (mode === 'download') btnConfirm.textContent = "Exporting...";
+                    else btnCopy.textContent = "Copying...";
+
+                    try {
+                        if (mode === 'copy') {
+                            const blobPromise = generateExportCanvas().then(canvas => new Promise(resolve => canvas.toBlob(resolve, 'image/png')));
+                            const item = new ClipboardItem({ 'image/png': blobPromise });
+                            await navigator.clipboard.write([item]);
+                            btnCopy.textContent = "Copied!";
+                            setTimeout(() => { closeExportModal(); btnCopy.textContent = oldCopyTxt; }, 1500);
+                        } else {
+                            const canvas = await generateExportCanvas();
+                            const out = canvas.toDataURL('image/png');
+                            const a = document.createElement('a'); a.href = out;
+                            const filename = $("#exp_filename").value || "attenuation_export";
+                            a.download = (filename.endsWith('.png') ? filename : filename + '.png');
+                            a.click(); closeExportModal();
+                        }
+                    } catch (err) { console.error(err); alert("Export/Copy failed."); } 
+                    finally { btnConfirm.textContent = oldConfirmTxt; if (mode !== 'copy') btnCopy.textContent = oldCopyTxt; }
+                }
+
+                function exportCSV() {
+                    const freqs = logspace(parseFrequency($("#startHz").value), parseFrequency($("#endHz").value), parseInt($("#pointsNum").value, 10));
+                    const hasOnly = state.caps.some((c) => c.only);
+                    const active = state.caps.filter((c) => hasOnly ? c.only : c.visible);
+                    const headers =["Frequency_Hz", ...active.map((c) => labelFor(c, state.solver))];
+                    const rows =[headers.join(",")];
+                    for (let i = 0; i < freqs.length; i++) {
+                        const f = freqs[i];
+                        const cols = [f];
+                        for (const c of active) {
+                            let atten;
+                            if (state.calculationModel === 'complex') {
+                                const cap_Z = getCapacitorImpedance(c, f);
+                                const trace_R = (2 * state.traceResistance_mOhm / 1000) / c.parCaps;
+                                const trace_L = (2 * state.traceLength_mm * 0.4e-9) / c.parCaps;
+                                const w = 2 * Math.PI * f;
+                                const trace_Z = { re: trace_R, im: w * trace_L };
+                                const total_shunt_Z = Complex.add(cap_Z, trace_Z);
+                                atten = calculateAttenuation_ComplexSim(total_shunt_Z);
+                            } else {
+                                atten = calculateAttenuation_Analytical(getCapacitorImpedance(c, f));
+                            }
+                            cols.push(atten.toFixed(6));
+                        }
+                        rows.push(cols.join(","));
+                    }
+                    const blob = new Blob([rows.join("\n")], { type: "text/csv" });
+                    const a = document.createElement("a");
+                    a.href = URL.createObjectURL(blob);
+                    a.download = "attenuation_export.csv";
+                    a.click();
+                    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+                }
+
+                function initCaps() {
+                    state.caps = defaultCaps.map((s, i) => {
+                        const parsed = parseCapString(s);
+                        return { 
+                            value: parsed.value, unit: parsed.unit, pf: valueUnitToPF(parsed.value, parsed.unit), 
+                            color: colors[i % colors.length], visible: true, only: false, 
+                            parCaps: parseInt($("#batchPar")?.value || 1, 10), R_override: null, L_override_nH: null,
+                            color_override: null, line_dash: "solid", line_width: 2 
+                        };
+                    });
+                    renderCaps();
+                }
+
+                function initBatchControls() {
+                    const parOptions = Array.from({ length: 6 }, (_, i) => `<option value="${i + 1}">${i + 1}x</option>`).join("");
+                    $$("#batchPar, #batchPar2, #batchParSolver").forEach((sel) => (sel.innerHTML = parOptions));
+                }
+
+                function syncAndApplyBatch(sourceElement) {
+                    const sourceId = sourceElement.id;
+                    const value = sourceElement.type === "checkbox" ? sourceElement.checked : sourceElement.value;
+                    let applyToCaps = false;
+                    
+                    if (sourceId.includes("inclPar")) $$("#inclPar, #inclParSolver").forEach((el) => (el.checked = value));
+                    else if (sourceId.includes("batchPar")) { $$("#batchPar, #batchPar2, #batchParSolver").forEach((el) => (el.value = value)); applyToCaps = true; }
+                    
+                    if (applyToCaps) {
+                        const currentPar = parseInt($("#batchPar").value, 10);
+                        state.caps.forEach((c) => c.parCaps = currentPar);
+                        renderCaps();
+                    }
+                    if (state.solver) computeAndRenderSolver();
+                    else { plot(); buildLegend(); }
+                }
+
+                function initOnboarding() {
+                    const welcomeBackdrop = $("#welcomeBackdrop");
+                    if (localStorage.getItem("hasVisitedPlotterGeneric")) return;
+                    welcomeBackdrop.style.display = "flex";
+                    const closeWelcome = () => { welcomeBackdrop.style.display = "none"; localStorage.setItem("hasVisitedPlotterGeneric", "true"); };
+                    $("#welcomeStart").onclick = closeWelcome;
+                }
+
+                function main() {
+                    initBatchControls();
+                    initCaps();
+                    initOnboarding();
+                    plot();
+                    buildLegend();
+
+                    const list = $("#capBody");
+                    let draggedItem = null, dragStartIndex = null;
+
+                    const clearIndicators = () => list.querySelectorAll('tr').forEach(item => item.classList.remove('drag-over-top', 'drag-over-bottom'));
+
+                    list.addEventListener('dragstart', (e) => {
+                        const target = e.target.closest('tr[draggable="true"]');
+                        if (!target) return;
+                        draggedItem = target; dragStartIndex = +target.dataset.index;
+                        e.dataTransfer.effectAllowed = "move";
+                        setTimeout(() => draggedItem.classList.add('dragging'), 0);
+                    });
+
+                    list.addEventListener('dragend', () => {
+                        if (draggedItem) draggedItem.classList.remove('dragging');
+                        draggedItem = null; dragStartIndex = null; clearIndicators();
+                    });
+
+                    list.addEventListener('dragover', (e) => {
+                        e.preventDefault(); if (!draggedItem) return;
+                        const target = e.target.closest('tr[draggable="true"]');
+                        if (!target || target === draggedItem) { clearIndicators(); return; }
+                        const rect = target.getBoundingClientRect();
+                        const isAfter = e.clientY > rect.top + rect.height / 2;
+                        clearIndicators();
+                        target.classList.add(isAfter ? 'drag-over-bottom' : 'drag-over-top');
+                    });
+
+                    list.addEventListener('dragleave', (e) => { if (!list.contains(e.relatedTarget)) clearIndicators(); });
+
+                    list.addEventListener('drop', (e) => {
+                        e.preventDefault();
+                        const target = e.target.closest('tr[draggable="true"]');
+                        if (!draggedItem || !target || target === draggedItem) return;
+                        const rect = target.getBoundingClientRect();
+                        const isAfter = e.clientY > rect.top + rect.height / 2;
+                        
+                        const draggedStateItem = state.caps[dragStartIndex];
+                        const targetStateItem = state.caps[+target.dataset.index];
+                        
+                        state.caps.splice(dragStartIndex, 1);
+                        const newTargetIndex = state.caps.indexOf(targetStateItem);
+                        state.caps.splice(isAfter ? newTargetIndex + 1 : newTargetIndex, 0, draggedStateItem);
+                        
+                        refreshCapColors(); renderCaps();
+                        if (state.solver) computeAndRenderSolver(); else { plot(); buildLegend(); }
+                    });
+                    
+                    const plotterUpdate = () => { plot(); buildLegend(); };
+                    $("#startHz").onchange = plotterUpdate; $("#endHz").onchange = plotterUpdate;
+                    $("#pointsNum").oninput = () => { const v = clamp(parseInt($("#pointsNum").value, 10) || 1000, 50, 3000); $("#pointsRange").value = v; $("#pointsNum").onblur = () => { $("#pointsNum").value = v; }; plotterUpdate(); };
+                    $("#pointsRange").oninput = () => { $("#pointsNum").value = $("#pointsRange").value; plotterUpdate(); };
+                    $("#outageStart").onchange = computeAndRenderSolver; $("#outageEnd").onchange = computeAndRenderSolver;
+                    $$("#inclPar, #batchPar, #inclParSolver, #batchParSolver, #batchPar2").forEach((el) => el.addEventListener("change", (e) => syncAndApplyBatch(e.target)));
+                    $("#comboModeToggle").onchange = (e) => { state.comboMode = e.target.checked; if (state.comboMode && state.solver) exitSolverMode(); plotterUpdate(); };
+                    $("#btnSolver").onclick = () => { state.solver ? exitSolverMode() : enterSolverMode(); };
+                    $("#btnReset").onclick = () => { initCaps(); if (state.solver) computeAndRenderSolver(); else plotterUpdate(); };
+                    $("#btnExport").onclick = exportCSV;
+                    $("#btnExportPng").onclick = openExportModal;
+                    $("#exp_cancel").onclick = closeExportModal;
+                    $("#exp_confirm").onclick = () => doExport('download');
+                    $("#exp_copy").onclick = () => doExport('copy');
+
+                    $("#addRow").onclick = () => { 
+                        const idx = state.caps.length; 
+                        state.caps.push({ value: 1, unit: "nF", pf: valueUnitToPF(1, "nF"), color: colors[idx % colors.length], visible: true, only: false, parCaps: parseInt($("#batchPar")?.value || 1, 10), R_override: null, L_override_nH: null, color_override: null, line_dash: "solid", line_width: 2 }); 
+                        refreshCapColors(); renderCaps(); 
+                        if (state.solver) computeAndRenderSolver(); else plotterUpdate(); 
+                    };
+                    $("#showAll").onclick = () => { state.caps.forEach((c) => { c.visible = true; c.only = false; }); renderCaps(); if (state.solver) computeAndRenderSolver(); else plotterUpdate(); };
+                    $("#clearAllCaps").onclick = () => { state.caps = state.caps.length > 1 ?[state.caps[0]] :[]; refreshCapColors(); renderCaps(); if (state.solver) computeAndRenderSolver(); else plotterUpdate(); };
+                    $("#pm_cancel").onclick = closeProp;
+                    $("#pm_apply").onclick = () => { 
+                        if (pmIndex == null) return; 
+                        const c = state.caps[pmIndex]; 
+                        c.value = parseFloat($("#pm_value").value) || 0; c.unit = $("#pm_unit").value; c.pf = valueUnitToPF(c.value, c.unit); 
+                        c.parCaps = parseInt($("#pm_par").value, 10) || 1; 
+                        const Lin = $("#pm_L").value.trim(), Rin = $("#pm_R").value.trim(); 
+                        c.L_override_nH = Lin === "" ? null : Number(Lin); c.R_override = Rin === "" ? null : Number(Rin); 
+                        c.visible = $("#pm_visible").checked; c.only = $("#pm_only").checked; 
+                        c.color_override = $("#pm_color").value; c.line_dash = $("#pm_dash").value; c.line_width = parseInt($("#pm_width").value, 10) || 2;
+                        renderCaps(); 
+                        if (state.solver) computeAndRenderSolver(); else { plot(); buildLegend(); } 
+                        closeProp(); 
+                    };
+                    pmBackdrop().addEventListener("click", (e) => { if (e.target === pmBackdrop()) closeProp(); });
+                    exportBackdrop().addEventListener("click", (e) => { if (e.target === exportBackdrop()) closeExportModal(); });
+                    document.addEventListener("keydown", (e) => { if (e.key === "Escape") { closeProp(); closeExportModal(); } });
+                    const chartEl = document.getElementById("chart");
+                    if (chartEl) { chartEl.on("plotly_click", (ev) => { if (state.comboMode) return; const idx = ev?.points?.[0]?.data?.meta; if (idx != null) openPropFor(idx); }); }
+
+                    $("#btnAdvancedSettings").onclick = () => {
+                        const advPanel = $("#advancedSettings");
+                        advPanel.style.display = advPanel.style.display === 'none' ? 'block' : 'none';
+                    };
+                    $("#modelToggle").onchange = (e) => {
+                        state.calculationModel = e.target.value;
+                        if (state.solver) computeAndRenderSolver(); else plotterUpdate();
+                    };
+                    $("#traceLength").onchange = (e) => {
+                        state.traceLength_mm = parseFloat(e.target.value) || 0;
+                        if (state.calculationModel === 'complex') { if (state.solver) computeAndRenderSolver(); else plotterUpdate(); }
+                    };
+                }
+
+                main();
+            })();
+        </script>
+    </body>
+</html>
