@@ -6,8 +6,8 @@ I am a Software Developer specializing in **AI-Augmented Development** and **Eng
 
 ## Featured Projects
 Inside the `/projects` directory, you will find standalone applications I have engineered:
-* **EESeal® Builder:** An algorithmic configuration wizard that automates engineering part selection.
-* **EMI Attenuation Plotter:** A data visualization tool utilizing Plotly.js to render complex frequency curves.
+* **EMI Filtered Connector Builder:** An algorithmic configuration wizard that automates engineering capacitor selection for each pin.
+* **Attenuation Plotter:** A data visualization tool utilizing Plotly.js to render complex frequency curves.
 * **Wonder Arcade:** A real-time multiplayer engine utilizing WebRTC and p5.js.
 
 ## Tech Stack
