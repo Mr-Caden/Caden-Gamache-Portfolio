@@ -16,7 +16,7 @@ Inside the `/projects` directory, you will find standalone applications I have e
 * **Methodologies:** AI-Augmented Development (Gemini), IoT Architecture, Generative AI API Integration
 
 ## Live Site
-View the live portfolio here: [Insert your GitHub Pages link here once deployed]
+View the live portfolio here: https://mr-caden.github.io/Caden-Gamache-Portfolio/
 
 ## Contact
 * **Email:** mrcgamache@outlook.com
