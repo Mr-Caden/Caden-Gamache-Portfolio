@@ -1,0 +1,1247 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Filtered Connector Builder | Interactive Demo</title>
+    
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+    <style>
+        /* --- PORTFOLIO BRANDING THEME --- */
+        :root {
+            --bg: #1E2022;
+            --panel: #2B2E33;
+            --panel-border: rgba(255, 255, 255, 0.05);
+            --text: #F4F7F6;
+            --text-on-white: #F4F7F6;
+            --muted: #A0AAB2;
+            --blue: #3B7197;
+            --blue-600: #4a8bb8;
+            --orange: #F08A4B;
+            --orange-hover: #f3a06b;
+            --chip: rgba(0,0,0,0.2);
+            --radius: 8px;
+            --shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            
+            --success: #4ade80;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+        }
+
+        *, *::before, *::after {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            color: var(--text);
+            background-color: var(--bg);
+            font-size: 15px;
+            line-height: 1.6;
+        }
+
+        /* Loading Screen */
+        .loading-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(30, 32, 34, 0.9);
+            backdrop-filter: blur(4px);
+            z-index: 2000; display: none;
+            justify-content: center; align-items: center; flex-direction: column;
+        }
+        .spinner {
+            width: 50px; height: 50px; border: 5px solid var(--panel-border);
+            border-top: 5px solid var(--blue); border-radius: 50%;
+            animation: spin 1s linear infinite; margin-bottom: 20px;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        /* Header */
+        header {
+            background: var(--panel);
+            border-bottom: 1px solid var(--panel-border);
+            padding: 28px 16px 26px;
+            text-align: center;
+        }
+        header h1 {
+            margin: 0 0 6px;
+            font-size: clamp(24px, 4vw, 32px);
+            font-weight: 800;
+            letter-spacing: -0.5px;
+        }
+        header h1 span {
+            color: var(--blue);
+        }
+        header p {
+            margin: 0;
+            color: var(--muted);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        /* Layout */
+        main {
+            max-width: 1000px;
+            margin: 40px auto;
+            padding: 0 20px;
+        }
+        
+        .wizard-panel {
+            background: var(--panel);
+            border: 1px solid var(--panel-border);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            overflow: hidden;
+        }
+        
+        .wizard-content {
+            padding: 40px;
+        }
+
+        /* Wizard Steps */
+        .step { display: none; }
+        .step.active { display: block; animation: fadeIn 0.4s ease; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Typography & Forms */
+        .section-title {
+            font-size: 24px;
+            font-weight: 700;
+            text-align: center;
+            margin: 0 0 30px;
+            color: var(--blue);
+        }
+        
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 24px;
+        }
+        
+        .field { margin-bottom: 20px; }
+        .field label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 8px;
+            font-size: 13px;
+            color: var(--muted);
+        }
+        
+        .field input, .field select, .field textarea {
+            width: 100%;
+            padding: 12px 14px;
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 6px;
+            background: rgba(0,0,0,0.2);
+            color: var(--text);
+            font-size: 15px;
+            transition: all 0.2s;
+        }
+        
+        .field input:focus, .field select:focus, .field textarea:focus {
+            border-color: var(--blue);
+            outline: none;
+            background: rgba(0,0,0,0.4);
+        }
+
+        .field input.invalid, .field select.invalid { border-color: var(--danger); }
+        
+        .input-group { display: flex; }
+        .input-group input { border-right: 0; border-top-right-radius: 0; border-bottom-right-radius: 0; }
+        .input-group select { border-top-left-radius: 0; border-bottom-left-radius: 0; width: auto; background-color: var(--chip); border-left: 1px solid rgba(255,255,255,0.05);}
+        
+        .helper-text { font-size: 13px; color: var(--muted); margin-top: 8px; }
+        .hidden { display: none !important; }
+
+        /* Navigation & Buttons */
+        .nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 40px;
+            border-top: 1px solid var(--panel-border);
+            background: rgba(0,0,0,0.1);
+        }
+        
+        .btn {
+            background: var(--blue);
+            color: #fff;
+            border: 1px solid var(--blue);
+            border-radius: 4px;
+            padding: 12px 24px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-size: 13px;
+        }
+        
+        .btn:hover { background: var(--blue-600); transform: translateY(-2px); }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+        
+        .btn.secondary { background: transparent; color: var(--text); border-color: rgba(255,255,255,0.2); }
+        .btn.secondary:hover { background: rgba(255,255,255,0.05); }
+        
+        .btn.danger { background: transparent; color: var(--danger); border-color: var(--danger); }
+        .btn.danger:hover { background: var(--danger); color: #fff;}
+
+        /* Results & Pins */
+        .results-section {
+            margin-bottom: 40px;
+        }
+        
+        .results-section h3 {
+            border-bottom: 2px solid var(--panel-border);
+            padding-bottom: 12px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            color: var(--blue);
+            font-weight: 600;
+        }
+        
+        #summaryText { line-height: 1.7; font-size: 15px; }
+        
+        .chart-wrap {
+            border: 1px solid var(--panel-border);
+            border-radius: var(--radius);
+            padding: 20px;
+            background: rgba(0,0,0,0.15);
+            position: relative; height: 450px; width: 100%;
+        }
+        
+        .pinout-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+            gap: 12px;
+        }
+        
+        .pin {
+            border: 1px solid var(--panel-border);
+            border-radius: 6px;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            text-align: center;
+            background: rgba(0,0,0,0.2);
+        }
+        
+        .pin-num { font-weight: 700; font-size: 16px; margin-bottom: 4px;}
+        .pin-status {
+            font-size: 12px;
+            padding: 4px 0;
+            border-radius: 4px;
+            font-weight: 600;
+        }
+        
+        .pin-status.ground { background: #454a52; color: var(--text); }
+        .pin-status.untreated { background: var(--bg); color: var(--muted); border: 1px dashed var(--muted); }
+
+        /* Alerts */
+        .alert {
+            padding: 16px;
+            border-radius: 6px;
+            margin-bottom: 16px;
+            border: 1px solid transparent;
+            font-size: 14px;
+        }
+        .alert-danger { background-color: rgba(239, 68, 68, 0.1); color: #fca5a5; border-color: rgba(239, 68, 68, 0.2); }
+        .alert-info { background-color: rgba(59, 113, 151, 0.1); color: #93c5fd; border-color: rgba(59, 113, 151, 0.3); }
+
+        #pinoutDescription, .disclaimer {
+            background: var(--chip);
+            padding: 20px;
+            border-radius: var(--radius);
+            border: 1px solid var(--panel-border);
+            margin-bottom: 24px;
+            font-size: 15px;
+        }
+        
+        .signal-group {
+            display: flex;
+            gap: 16px;
+            align-items: center;
+            margin-bottom: 16px;
+            background: var(--chip);
+            padding: 16px;
+            border-radius: var(--radius);
+            border: 1px solid var(--panel-border);
+        }
+        .signal-group .field { flex-grow: 1; margin-bottom: 0; }
+
+        /* Modals */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(4px);
+            display: none; justify-content: center; align-items: center; z-index: 1000;
+        }
+        
+        .modal {
+            background: var(--panel);
+            padding: 30px;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 500px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            border: 1px solid var(--panel-border);
+        }
+        
+        .modal-header {
+            display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;
+        }
+        .modal-header h2 { margin: 0; color: var(--blue); }
+    </style>
+</head>
+
+<body>
+    <div class="loading-overlay" id="loadingScreen">
+        <div class="spinner"></div>
+        <h2 style="color:var(--blue)">Analyzing Filter Design...</h2>
+        <p style="color:var(--muted)">Calculating attenuation metrics across inventory.</p>
+    </div>
+
+    <header>
+        <h1>Filtered Connector <span>Configuration Wizard</span></h1>
+        <p>Interactive Algorithm & Component Specification Tool</p>
+    </header>
+
+    <main id="app">
+        <div class="wizard-panel">
+            <div class="wizard-content">
+
+                <!-- Step 1: Welcome -->
+                <section class="step active" data-step="1">
+                    <h2 class="section-title">Initialize Design</h2>
+                    <p style="text-align: center; max-width: 800px; margin: 0 auto 20px;">
+                        This tool maps physical constraints and noise frequencies to an optimized internal capacitor array. 
+                        It utilizes an embedded library of MIL-STD-38999 connector geometries and a standard EIA passive component database to guarantee hardware compatibility.
+                    </p>
+                    <div class="helper-text" id="fileStatus" style="text-align: center">
+                        Loading required databases...
+                    </div>
+                </section>
+
+                <!-- Step 2: Connector -->
+                <section class="step" data-step="2">
+                    <h2 class="section-title">Physical Connector Geometry</h2>
+                    <div class="grid">
+                        <div class="field">
+                            <label for="milStd">Base Standard / Series</label>
+                            <select id="milStd" disabled><option>-- Loading --</option></select>
+                        </div>
+                    </div>
+                    <div id="standardSelectorContainer">
+                        <div class="grid">
+                            <div class="field">
+                                <label for="pinArrangement">Insert Arrangement</label>
+                                <select id="pinArrangement" disabled><option value="">-- Select a Standard First --</option></select>
+                            </div>
+                            <div class="field">
+                                <label for="connectorType">Connector Type</label>
+                                <select id="connectorType" disabled><option value="">-- Select Arrangement First --</option></select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div id="customConnectorContainer" class="hidden" style="border: 1px solid var(--panel-border); padding: 20px; border-radius: 6px; background: var(--chip); margin-top: 15px;">
+                        <div class="helper-text" style="margin-top: -10px; margin-bottom: 15px; font-weight: bold; color: var(--text);">Define custom connector constraints:</div>
+                        <div class="grid">
+                            <div class="field">
+                                <label for="customPartNumber">Identifier / Part Number</label>
+                                <input type="text" id="customPartNumber" placeholder="e.g., Custom-50-Pin" />
+                            </div>
+                            <div class="field">
+                                <label for="customPinCount">Total Contact Count</label>
+                                <input type="number" id="customPinCount" placeholder="e.g., 50" min="1" />
+                            </div>
+                        </div>
+                        <div class="grid">
+                            <div class="field">
+                                <label for="customLabeling">Nomenclature System</label>
+                                <select id="customLabeling">
+                                    <option value="Number">Numeric (1, 2, 3...)</option>
+                                    <option value="Letter">Alphabetical (A...Z)</option>
+                                    <option value="Custom">Manual Array</option>
+                                </select>
+                            </div>
+                            <div class="field">
+                                <label for="customDensity">Maximum Component Size</label>
+                                <select id="customDensity">
+                                    <option value="402">High Density (0402 footprint limit)</option>
+                                    <option value="603">Standard Density (0603 footprint limit)</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="field hidden" id="customPinListContainer">
+                            <label for="customPinList">Manual Pin Array (Comma Separated)</label>
+                            <textarea id="customPinList" rows="3" style="font-family: monospace;" placeholder="e.g., A1, A2, B1, B2, GND, VCC..."></textarea>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Step 3: Capacitance -->
+                <section class="step" data-step="3">
+                    <h2 class="section-title">Insertion Loss Targets</h2>
+                    <div class="field">
+                        <label>Optimization Pathway</label>
+                        <select id="capacitancePathChooser">
+                            <option value="">-- Select Pathway --</option>
+                            <option value="no">Algorithmic Optimization (Calculate best value by frequency)</option>
+                            <option value="yes">Specific Value Constraint (I know the capacitance I need)</option>
+                        </select>
+                    </div>
+                    <div id="pathA_KnownCap" class="hidden" style="border: 1px solid var(--panel-border); padding: 20px; border-radius: 6px; background: rgba(0,0,0,0.1);">
+                        <div class="grid">
+                            <div class="field">
+                                <label for="knownCap">Target Capacitance</label>
+                                <input type="number" id="knownCap" placeholder="e.g., 4.7" />
+                            </div>
+                            <div class="field">
+                                <label for="knownCapUnit">Unit</label>
+                                <select id="knownCapUnit">
+                                    <option value="pF">pF</option>
+                                    <option value="nF" selected>nF</option>
+                                    <option value="uF">µF</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="pathB_FindCap" class="hidden" style="border: 1px solid var(--panel-border); padding: 20px; border-radius: 6px; background: rgba(0,0,0,0.1);">
+                        <div class="helper-text" style="margin: -5px 0 15px">
+                            Provide the bandwidth of the interference. The solver will iterate over available inventory to maximize attenuation in this zone.
+                        </div>
+                        <div class="grid">
+                            <div class="field">
+                                <label for="fLow">Lower Bound Frequency</label>
+                                <div class="input-group">
+                                    <input type="number" id="fLow" placeholder="e.g., 1" />
+                                    <select id="fLowUnit">
+                                        <option value="1">Hz</option>
+                                        <option value="1000">kHz</option>
+                                        <option value="1000000" selected>MHz</option>
+                                        <option value="1000000000">GHz</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="field">
+                                <label for="fHigh">Upper Bound Frequency</label>
+                                <div class="input-group">
+                                    <input type="number" id="fHigh" placeholder="e.g., 100" />
+                                    <select id="fHighUnit">
+                                        <option value="1">Hz</option>
+                                        <option value="1000">kHz</option>
+                                        <option value="1000000" selected>MHz</option>
+                                        <option value="1000000000">GHz</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Step 4: Voltage -->
+                <section class="step" data-step="4">
+                    <h2 class="section-title">Electrical & Routing Constraints</h2>
+                    <div class="grid">
+                        <div class="field">
+                            <label for="highestDc">Maximum Operating DC Voltage</label>
+                            <input type="number" id="highestDc" placeholder="e.g., 28" />
+                            <div class="helper-text">Inventory is filtered for components with a minimum 1.75x safety derating.</div>
+                        </div>
+                        <div class="field">
+                            <label for="acVoltage">High Voltage AC Present?</label>
+                            <select id="acVoltage">
+                                <option value="no">No AC Voltage</option>
+                                <option value="yes">Yes, AC Voltage Present</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div id="acVoltageDetails" class="hidden" style="margin-top: 15px; border-top: 1px solid var(--panel-border); padding-top: 20px;">
+                        <div class="grid">
+                            <div class="field">
+                                <label for="acPins">AC Contact Assignments</label>
+                                <input type="text" id="acPins" placeholder="Select connector first" />
+                            </div>
+                            <div class="field">
+                                <label for="highestAc">AC RMS Voltage</label>
+                                <input type="number" id="highestAc" placeholder="e.g., 115" />
+                            </div>
+                        </div>
+                    </div>
+                    <div class="field" style="margin-top: 15px; border-top: 1px solid var(--panel-border); padding-top: 20px;">
+                        <label for="shortedPins">Ground / Shorted Pins</label>
+                        <input type="text" id="shortedPins" placeholder="Select connector first" />
+                        <div class="helper-text">Contacts routed directly to the connector shell (e.g., 1-5, 10, GND).</div>
+                    </div>
+                </section>
+
+                <!-- Step 5: Signal Integrity -->
+                <section class="step" data-step="5">
+                    <h2 class="section-title">Signal Integrity Mapping</h2>
+                    <div class="helper-text" style="margin: -15px 0 20px">
+                        Define high-speed data lines. The algorithm will automatically calculate the maximum safe capacitance that preserves your signal while still providing some EMI filtering.
+                    </div>
+                    <div class="field">
+                        <label>Strictly Untreated Pins (e.g. USB, HDMI)</label>
+                        <input type="text" id="untreatablePins" placeholder="Select connector first" />
+                    </div>
+                    <div id="customSignalContainer"></div>
+                    <button id="addSignalBtn" type="button" class="btn secondary" style="margin-top: 10px">+ Add Data Protocol Group</button>
+                </section>
+
+                <!-- Step 6: Results -->
+                <section class="step" data-step="6">
+                    <h2 class="section-title">Optimized Array Architecture</h2>
+                    <div id="resultsContainer">
+                        <div class="results-section">
+                            <h3 id="summaryTitle">Analysis Summary</h3>
+                            <div id="summaryText">Summary will be generated here...</div>
+                        </div>
+                        <div class="results-section">
+                            <h3 id="chartTitle">Bode Plot Validation</h3>
+                            <div class="chart-wrap">
+                                <canvas id="attenChart"></canvas>
+                            </div>
+                            <div class="helper-text" style="margin-top: 10px;">
+                                Simulates Ideal MLCC parameters (ESR: 50mΩ, ESL: 0.5nH). Highlighted traces indicate algorithm-selected values.
+                            </div>
+                        </div>
+                        <div class="results-section">
+                            <h3>Contact Schematic <button id="downloadCsvBtn" class="btn secondary" style="font-size: 12px; padding: 6px 12px; margin-left: auto;">Export Array (CSV)</button></h3>
+                            <div id="pinoutDescription"></div>
+                            <div class="pinout-grid" id="pinoutGrid"></div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+            
+            <div class="nav">
+                <button id="prevBtn" class="btn secondary" disabled>Previous Phase</button>
+                <div id="stepIndicator" style="font-family: var(--font-mono); font-size: 12px; color: var(--muted);">Step 1 of 5</div>
+                <button id="nextBtn" class="btn" disabled>Next Phase</button>
+            </div>
+        </div>
+    </main>
+
+    <!-- Modals -->
+    <div class="modal-overlay" id="orderModal">
+        <div class="modal">
+            <div class="modal-header"><h2>Request Prototype</h2><button class="btn danger" onclick="document.getElementById('orderModal').style.display='none'" style="padding: 5px 12px;">&times;</button></div>
+            <p style="margin-top: -10px; margin-bottom: 20px; color: var(--muted); font-size: 13px;">This is a demonstration portfolio project. Submitting this form will generate an HTML email preview of the specifications, but will not send real data.</p>
+            <form id="orderForm">
+                <div class="field"><label>Engineer Name</label><input type="text" id="contactName" required value="John Doe"></div>
+                <div class="field"><label>Organization</label><input type="text" id="contactCompany" value="Acme Aerospace"></div>
+                <div class="field"><label>Email Address</label><input type="email" id="contactEmail" required value="engineering@example.com"></div>
+                <div class="field"><label>Phone</label><input type="tel" id="contactPhone"></div>
+                <button type="submit" class="btn" style="width: 100%; margin-top: 10px;">Generate Spec Sheet Preview</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- MOCK DATA & LOGIC SCRIPTS -->
+    <script>
+        /**
+         * --- GENERATE GENERIC INVENTORY ---
+         * Creates a standardized array of E12 series capacitors to simulate a real database.
+         */
+        function generateGenericInventory() {
+            const inventory = [];
+            const values =[
+                { cap: 10e-6, label: "10uF" }, { cap: 4.7e-6, label: "4.7uF" }, { cap: 2.2e-6, label: "2.2uF" }, { cap: 1e-6, label: "1uF" },
+                { cap: 470e-9, label: "470nF" }, { cap: 100e-9, label: "100nF" }, { cap: 47e-9, label: "47nF" }, { cap: 10e-9, label: "10nF" },
+                { cap: 4.7e-9, label: "4.7nF" }, { cap: 1e-9, label: "1nF" },
+                { cap: 470e-12, label: "470pF" }, { cap: 100e-12, label: "100pF" }, { cap: 47e-12, label: "47pF" }, { cap: 10e-12, label: "10pF" }
+            ];
+            
+            const sizes =[
+                { size: 402, maxVolts: 50, thick: 20 },
+                { size: 603, maxVolts: 200, thick: 30 },
+                { size: 805, maxVolts: 500, thick: 40 },
+                { size: 1206, maxVolts: 1500, thick: 50 }
+            ];
+
+            values.forEach(v => {
+                sizes.forEach(s => {
+                    // Small caps can handle high voltage in small packages, large caps cannot.
+                    let actualMaxVolts = s.maxVolts;
+                    if (v.cap > 1e-6 && s.size === 402) actualMaxVolts = 16; 
+                    if (v.cap <= 10e-9 && s.size === 402) actualMaxVolts = 200;
+
+                    // Add standard ratings up to max
+                    const ratings =[16, 50, 100, 250, 500, 1000, 2000].filter(r => r <= actualMaxVolts);
+                    ratings.forEach(rating => {
+                        inventory.push({ capF: v.cap, size: s.size, wvdc: rating, thick: s.thick });
+                    });
+                });
+            });
+            return inventory;
+        }
+
+        const DB_INVENTORY = generateGenericInventory();
+
+        /**
+         * --- GENERATE MOCK CONNECTOR DATABASE ---
+         * A lightweight subset of standard MIL-DTL-38999 parameters for demonstration.
+         */
+        const DB_CONNECTORS =[
+            { "MIL-Standard": "MIL-DTL-38999 Series III", "Pin Arrangement": "9-35", "Connector Type": "Receptacle", "Pins": 6, "Max Size": 402, "Max Thickness (mils)": 36.5, "Labeling": "Number", "Pin Skip/List": "" },
+            { "MIL-Standard": "MIL-DTL-38999 Series III", "Pin Arrangement": "9-98", "Connector Type": "Receptacle", "Pins": 3, "Max Size": 402, "Max Thickness (mils)": 36.5, "Labeling": "Letter", "Pin Skip/List": "I, O, Q, X, Z" },
+            { "MIL-Standard": "MIL-DTL-38999 Series III", "Pin Arrangement": "11-35", "Connector Type": "Receptacle", "Pins": 13, "Max Size": 402, "Max Thickness (mils)": 36.5, "Labeling": "Number", "Pin Skip/List": "" },
+            { "MIL-Standard": "MIL-DTL-38999 Series III", "Pin Arrangement": "13-98", "Connector Type": "Receptacle", "Pins": 10, "Max Size": 402, "Max Thickness (mils)": 36.5, "Labeling": "Letter", "Pin Skip/List": "I, O, Q, X, Z" },
+            { "MIL-Standard": "MIL-DTL-38999 Series III", "Pin Arrangement": "15-35", "Connector Type": "Receptacle", "Pins": 37, "Max Size": 402, "Max Thickness (mils)": 36.5, "Labeling": "Number", "Pin Skip/List": "" },
+            { "MIL-Standard": "MIL-DTL-38999 Series III", "Pin Arrangement": "21-41", "Connector Type": "Receptacle", "Pins": 41, "Max Size": 402, "Max Thickness (mils)": 36.5, "Labeling": "Custom", "Pin Skip/List": "A,B,C,D,E,F,G,H,J,K,L,M,N,P,R,S,T,U,V,W,X,Y,Z,a,b,c,d,e,f,g,h,j,k,l,m,n,p,r,s,t" },
+            { "MIL-Standard": "MIL-DTL-38999 Series III", "Pin Arrangement": "25-35", "Connector Type": "Receptacle", "Pins": 128, "Max Size": 402, "Max Thickness (mils)": 36.5, "Labeling": "Number", "Pin Skip/List": "" }
+        ];
+        // Duplicate for Plugs
+        const plugs = DB_CONNECTORS.map(c => ({...c, "Connector Type": "Plug"}));
+        DB_CONNECTORS.push(...plugs);
+
+        /**
+         * --- SERVER/ALGORITHM LOGIC ---
+         */
+        const ServerLogic = {
+            R: 0.05, // 50mOhms generic ESR
+            L: 0.5e-9, // 0.5nH generic ESL
+            SI_ATTENUATION_LIMIT_DB: 3.5,
+            PALETTE:["#3B7197", "#F08A4B", "#4ade80", "#c084fc", "#f472b6", "#34d399", "#fbbf24", "#93c5fd"],
+
+            calcAttenuation: function(C, f) {
+                const w = 2 * Math.PI * f;
+                const t1 = 1 - w * w * this.L * C;
+                const t2 = w * this.R * C;
+                const t3 = 2 * Math.PI * this.R * C + 25 * w * C;
+                const num = Math.sqrt(t1 * t1 + t2 * t2);
+                const den = Math.sqrt(t1 * t1 + t3 * t3);
+                return den === 0 ? 0 : -20 * Math.log10(num / den);
+            },
+            
+            calcAverage: function(C, fLow, fHigh) {
+                if (!fLow || !fHigh || C <= 0) return 0;
+                let total = 0, count = 100, step = (Math.log10(fHigh) - Math.log10(fLow)) / (count - 1);
+                for (let i = 0; i < count; i++) total += this.calcAttenuation(C, Math.pow(10, Math.log10(fLow) + i * step));
+                return total / count;
+            },
+
+            calculateSignalIntegrityCap: function(signalFreq, availableCaps) {
+                const testFreq = signalFreq * 10;
+                let maxCap = 0;
+                for (const capF of availableCaps) {
+                    if (this.calcAttenuation(capF, testFreq) > this.SI_ATTENUATION_LIMIT_DB) break;
+                    maxCap = capF;
+                }
+                return maxCap;
+            },
+            
+            generateChartPoints: function(C) {
+                const points =[];
+                for(let f=1e5; f<=1e9; f=Math.pow(10, Math.log10(f) + (Math.log10(1e9)-Math.log10(1e5))/199)) { 
+                    points.push({ x: f, y: this.calcAttenuation(C, f) });
+                }
+                return points;
+            },
+            
+            generatePinLabels: function(conn) {
+                if (!conn) return[];
+                if (conn.Labeling === "Custom") return conn["Pin Skip/List"].split(',').map(p => p.trim());
+                if (conn.Labeling === "Number") return Array.from({length: conn.Pins}, (_, i) => String(i + 1));
+                if (conn.Labeling === "Letter") {
+                    const skipped = (conn["Pin Skip/List"] || "").split(',').map(s => s.trim());
+                    const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz".split('');
+                    const validChars = alphabet.filter(c => !skipped.includes(c));
+                    let labels =[], count = 0;
+                    for (let i = 0; i < validChars.length && count < conn.Pins; i++) { labels.push(validChars[i]); count++; }
+                    if (count < conn.Pins) {
+                        for (let i = 0; i < validChars.length && count < conn.Pins; i++) {
+                            for (let j = 0; j < validChars.length && count < conn.Pins; j++) { labels.push(validChars[i] + validChars[j]); count++; }
+                        }
+                    }
+                    return labels;
+                }
+                return Array.from({ length: conn.Pins }, (_, i) => String(i + 1));
+            },
+
+            formatPinRanges: function(pins, allLabels) {
+                if (!pins || pins.length === 0 || !allLabels) return "";
+                const sortedPins = [...pins].sort((a, b) => allLabels.indexOf(a) - allLabels.indexOf(b));
+                const ranges =[];
+                if (sortedPins.length === 0) return "";
+                let start = sortedPins[0], end = sortedPins[0];
+                for (let i = 1; i < sortedPins.length; i++) {
+                    if (allLabels.indexOf(sortedPins[i]) === allLabels.indexOf(end) + 1) end = sortedPins[i];
+                    else { ranges.push(start === end ? `${start}` : `${start}-${end}`); start = end = sortedPins[i]; }
+                }
+                ranges.push(start === end ? `${start}` : `${start}-${end}`);
+                return ranges.join(", ");
+            },
+
+            formatCapServer: function(val) {
+                if (!val) return "N/A";
+                if (val >= 1e-6) return (val/1e-6).toFixed(3).replace(/\.?0+$/, "") + "µF";
+                if (val >= 1e-9) return (val/1e-9).toFixed(3).replace(/\.?0+$/, "") + "nF";
+                return (val/1e-12).toFixed(3).replace(/\.?0+$/, "") + "pF";
+            },
+
+            isStandardDecade: function(capF) {
+                const sci = capF.toExponential();
+                const base = parseFloat(sci.split('e')[0]);
+                return[1.0, 2.2, 4.7].some(std => Math.abs(base - std) < 0.05 || Math.abs(base - 10) < 0.05);
+            }
+        };
+
+        const ServerController = {
+            getStandards: () => { return { status: "success", data:[...new Set(DB_CONNECTORS.map(c => c["MIL-Standard"]))].sort() }; },
+            getArrangements: (std) => ({ status: "success", data:[...new Set(DB_CONNECTORS.filter(c => c["MIL-Standard"] === std).map(c => c["Pin Arrangement"]))].sort((a,b)=>{const nA=parseFloat(a.split(/[- ]/)[0]),nB=parseFloat(b.split(/[- ]/)[0]);return (!isNaN(nA)&&!isNaN(nB))?nA-nB:a.localeCompare(b);}) }),
+            getTypes: (std, arr) => ({ status: "success", data: DB_CONNECTORS.filter(c => c["MIL-Standard"] === std && c["Pin Arrangement"] === arr).map(c => c["Connector Type"]) }),
+            
+            getPinLabels: function(std, arr, type) {
+                if(std === "Custom") return { status: "success", data: [] };
+                const conn = DB_CONNECTORS.find(c => c["MIL-Standard"] === std && c["Pin Arrangement"] === arr && c["Connector Type"] === type);
+                if(!conn) return { status: "error", message: "Connector not found" };
+                return { status: "success", data: ServerLogic.generatePinLabels(conn) };
+            },
+
+            calculate: function(payload) {
+                let conn;
+                if (payload.milStd === "Custom") conn = payload.customConnectorData;
+                else conn = DB_CONNECTORS.find(c => c["MIL-Standard"] === payload.milStd && c["Pin Arrangement"] === payload.pinArrangement && c["Connector Type"] === payload.connectorType);
+                
+                if (!conn) return { status: "error", message: "Connector not found." };
+
+                const allPinLabels = ServerLogic.generatePinLabels(conn);
+                const minVolts = (payload.highestDc || 0) * 1.75;
+                const constraints = { maxSize: conn["Max Size"], maxThickness: conn["Max Thickness (mils)"] };
+                
+                const candidateInventory = DB_INVENTORY.filter(p => p.wvdc >= minVolts && p.size <= constraints.maxSize && p.thick <= constraints.maxThickness);
+                
+                if(candidateInventory.length === 0) {
+                    return { status: "error", message: `No parts in our inventory meet the requirements for this connector (Size ≤ ${String(constraints.maxSize).padStart(4,"0")}, Thickness ≤ ${constraints.maxThickness} mils, and WVDC ≥ ${minVolts}V).` };
+                }
+
+                const validUniqueCaps = [...new Set(candidateInventory.map(p => p.capF))].sort((a,b)=>a-b);
+                const pinTreatments = {};
+                let precedentApplied = false;
+                let substitutedCapInfo = null;
+                let acOverrideApplied = false;
+                const siForcedUntreatedGroups =[];
+
+                // AC Logic
+                let acCandidateInventory =[];
+                if (payload.acPresent && payload.acPins.length > 0) {
+                    acCandidateInventory = DB_INVENTORY.filter(p => (payload.highestAc < 200 ? p.capF <= 4.7e-9 && p.wvdc >= 1000 && parseInt(p.size) >= 603 : p.capF <= 1.5e-9 && p.wvdc >= 250 && parseInt(p.size) >= 603));
+                    const acValidUniqueCaps =[...new Set(acCandidateInventory.map(p => p.capF))].sort((a, b) => a - b);
+                    const acCandidates = acValidUniqueCaps.map(C => ({ C, avgDb: ServerLogic.calcAverage(C, payload.fLow, payload.fHigh) })).sort((a, b) => b.avgDb - a.avgDb);
+                    pinTreatments.acTreatment = acCandidates.length > 0 ? acCandidates[0].C : null;
+                }
+
+                // Target/Default Cap Logic
+                if (payload.capacitancePath === "yes" && payload.targetCap) {
+                    const targetCap = payload.targetCap;
+                    const closestMatch = candidateInventory.reduce((prev, curr) => (Math.abs(curr.capF - targetCap) < Math.abs(prev.capF - targetCap) ? curr : prev));
+                    if (Math.abs(closestMatch.capF - targetCap) > targetCap * 0.25) {
+                        return { status: "error", message: `Your chosen capacitance of ${ServerLogic.formatCapServer(targetCap)} is not available. The closest value is ${ServerLogic.formatCapServer(closestMatch.capF)}, which is outside the acceptable tolerance.` };
+                    }
+                    if (Math.abs(closestMatch.capF - targetCap) > 1e-15) {
+                        substitutedCapInfo = { requested: targetCap, actual: closestMatch.capF };
+                    }
+                    pinTreatments.default = closestMatch.capF;
+                } else {
+                    const candidates = validUniqueCaps.map(C => ({ C, avgDb: ServerLogic.calcAverage(C, payload.fLow, payload.fHigh) })).sort((a, b) => b.avgDb - a.avgDb);
+                    pinTreatments.default = candidates.length > 0 ? candidates[0].C : null;
+                }
+
+                // SI Logic
+                payload.customSignals.forEach(signal => {
+                    const key = `custom_${signal.freq}`;
+                    let recommendedCap = ServerLogic.calculateSignalIntegrityCap(signal.freq, validUniqueCaps);
+                    if (recommendedCap > 0 && payload.capacitancePath === "no" && payload.fLow && payload.fHigh) {
+                        const avgDbInRange = ServerLogic.calcAverage(recommendedCap, payload.fLow, payload.fHigh);
+                        if (avgDbInRange < 5) {
+                            siForcedUntreatedGroups.push({ freq: signal.freq, pins: signal.pins, cap: recommendedCap, avgDb: avgDbInRange });
+                            payload.untreatablePins.push(...signal.pins);
+                            recommendedCap = 0;
+                        }
+                    }
+                    pinTreatments[key] = recommendedCap;
+                });
+                
+                payload.untreatablePins = [...new Set(payload.untreatablePins)];
+
+                if (payload.acPresent && payload.acPins.length > 0 && pinTreatments.acTreatment && pinTreatments.default && Math.abs(pinTreatments.acTreatment - pinTreatments.default) > 1e-15) {
+                    acOverrideApplied = true;
+                }
+
+                const defaultCap = pinTreatments.default;
+                if (defaultCap) {
+                    for (const key in pinTreatments) {
+                        if (key !== "default" && pinTreatments[key] > defaultCap) {
+                            pinTreatments[key] = defaultCap;
+                            precedentApplied = true;
+                        }
+                    }
+                }
+
+                // --- CHART & RENDERING DATA ---
+                const recommendedCaps =[...new Set(Object.values(pinTreatments))].filter(c => c !== null && c > 0);
+                const colorMap = recommendedCaps.reduce((acc, cap, i) => ({ ...acc, [cap]: ServerLogic.PALETTE[i % ServerLogic.PALETTE.length] }), {});
+                
+                const displayCaps = validUniqueCaps.filter(C => recommendedCaps.includes(C) || ServerLogic.isStandardDecade(C));
+                const chartSeries = displayCaps.map(C => ({ cap: C, points: ServerLogic.generateChartPoints(C), isUsed: recommendedCaps.includes(C) }));
+
+                const pinMap = {};
+                const getPinData = (pinLabel) => {
+                    if (payload.shortedPins.includes(pinLabel)) return { type: "GROUND", value: "Shorted to Shell" };
+                    if (payload.untreatablePins.includes(pinLabel)) return { type: "UNTREATED", value: "Untreated (High-Speed Signal)" };
+                    
+                    let capF = pinTreatments.default;
+                    let freq = "Power/DC";
+                    if (payload.acPresent && payload.acPins.includes(pinLabel)) {
+                        capF = pinTreatments.acTreatment; freq = `AC Pin (${payload.highestAc}V)`;
+                    } else {
+                        for (const signal of payload.customSignals) {
+                            if (signal.pins.includes(pinLabel)) { capF = pinTreatments[`custom_${signal.freq}`]; freq = `~${(signal.freq / 1e3).toFixed(0)}kHz Signal`; break; }
+                        }
+                    }
+                    const invSearch = (payload.acPresent && payload.acPins.includes(pinLabel)) ? acCandidateInventory : candidateInventory;
+                    const part = capF ? invSearch.find(p => Math.abs(p.capF - capF) < 1e-15) : null;
+                    return { type: "FILTERED", capF: capF, formattedValue: ServerLogic.formatCapServer(capF), voltage: part?.wvdc || "N/A", freq: freq, color: colorMap[capF] };
+                };
+
+                allPinLabels.forEach(pin => { pinMap[pin] = getPinData(pin); });
+
+                const summaryParts =[];
+                if (substitutedCapInfo) summaryParts.push(`<div class="alert alert-info">Note: Requested capacitance of <strong>${ServerLogic.formatCapServer(substitutedCapInfo.requested)}</strong> unavailable. Closest match: <strong>${ServerLogic.formatCapServer(substitutedCapInfo.actual)}</strong>.</div>`);
+                if (acOverrideApplied) summaryParts.push(`<div class="alert alert-info">Note: AC pins use dedicated high-voltage capacitors, overriding general values.</div>`);
+                siForcedUntreatedGroups.forEach(g => summaryParts.push(`<div class="alert alert-info">Note: Signal pins (${ServerLogic.formatPinRanges(g.pins, allPinLabels)}) left <strong>untreated</strong> to preserve signal integrity (insufficient noise filtering).</div>`));
+                if (precedentApplied) summaryParts.push(`<div class="alert alert-info">Note: Some signal pins reduced to match the optimal general-purpose value.</div>`);
+                
+                const mainTextParts =[];
+                if (pinTreatments.default) mainTextParts.push(`General purpose pins utilize <strong>${ServerLogic.formatCapServer(pinTreatments.default)}</strong> components.`);
+                if (pinTreatments.acTreatment) mainTextParts.push(`AC pins utilize <strong>${ServerLogic.formatCapServer(pinTreatments.acTreatment)}</strong>.`);
+                payload.customSignals.forEach(s => {
+                    const cap = pinTreatments[`custom_${s.freq}`];
+                    if (cap > 0) mainTextParts.push(`Data lines (~${(s.freq / 1e3).toFixed(0)}kHz) utilize <strong>${ServerLogic.formatCapServer(cap)}</strong> to preserve integrity.`);
+                });
+                if (mainTextParts.length > 0) summaryParts.push(mainTextParts.join("<br>"));
+
+                // Generate Pinout string
+                const pinGroups = {};
+                for (const pinLabel of allPinLabels) {
+                    const data = pinMap[pinLabel];
+                    if (!data) continue;
+                    const key = data.type === "FILTERED" ? `FILTERED_${data.capF}` : data.type;
+                    if (!pinGroups[key]) pinGroups[key] = { pins: [], data: data };
+                    pinGroups[key].pins.push(pinLabel);
+                }
+                const sortedGroups = Object.values(pinGroups).sort((a, b) => a.pins.length - b.pins.length);
+                const descriptions =[];
+                for (let i = 0; i < sortedGroups.length - 1; i++) {
+                    const { pins, data } = sortedGroups[i];
+                    const formattedPins = ServerLogic.formatPinRanges(pins, allPinLabels);
+                    if (data.type === "FILTERED") descriptions.push(`${ServerLogic.formatCapServer(data.capF)} ${data.voltage}WVDC caps on pins ${formattedPins}.`);
+                    else if (data.type === "GROUND") descriptions.push(`Pins ${formattedPins} grounded to shell.`);
+                    else descriptions.push(`Pins ${formattedPins} left untreated.`);
+                }
+                const lastGroup = sortedGroups[sortedGroups.length - 1];
+                if (lastGroup) {
+                    if (lastGroup.data.type === "FILTERED") descriptions.push(`${lastGroup.data.formattedValue} ${lastGroup.data.voltage}WVDC caps on all other pins.`);
+                    else if (lastGroup.data.type === "GROUND") descriptions.push(`All other pins grounded to shell.`);
+                    else descriptions.push(`All other pins left untreated.`);
+                }
+
+                return { 
+                    status: "success", 
+                    pinMap, 
+                    chartData: chartSeries, 
+                    colorMap,
+                    summaryHtml: summaryParts.join(""),
+                    pinoutDescription: descriptions.join(" "),
+                    allPinLabels
+                };
+            }
+        };
+
+        // Network Simulator
+        const API = {
+            get: async function(endpoint) {
+                await new Promise(r => setTimeout(r, 200)); 
+                const url = new URL("http://mock" + endpoint);
+                const path = url.pathname;
+                const params = url.searchParams;
+                if (path === '/api/standards') return ServerController.getStandards();
+                if (path === '/api/arrangements') return ServerController.getArrangements(params.get('std'));
+                if (path === '/api/types') return ServerController.getTypes(params.get('std'), params.get('arr'));
+                if (path === '/api/pin-labels') return ServerController.getPinLabels(params.get('std'), params.get('arr'), params.get('type'));
+                return { status: "error" };
+            },
+            post: async function(endpoint, payload) {
+                await new Promise(r => setTimeout(r, 800)); 
+                if (endpoint === '/api/calculate') return ServerController.calculate(payload);
+                return { status: "error" };
+            }
+        };
+
+        /**
+         * --- CLIENT UI CONTROLLER ---
+         */
+        const Client = {
+            state: { currentStep: 1, totalSteps: 6, chart: null, currentPinLabels:[], lastPayload: null, lastResult: null },
+
+            init: async function() {
+                this.bindEvents();
+                const res = await API.get('/api/standards');
+                if (res.status === 'success') {
+                    const el = document.getElementById('milStd');
+                    el.innerHTML = `<option value="">-- Select Standard --</option>`;
+                    res.data.forEach(i => el.innerHTML += `<option value="${i}">${i}</option>`);
+                    el.innerHTML += '<option value="Custom">★ Custom / Manual Entry</option>';
+                    el.disabled = false;
+                    document.getElementById("fileStatus").textContent = "Databases Initialized.";
+                    document.getElementById("fileStatus").style.color = "var(--success)";
+                }
+                this.updateNav();
+            },
+
+            bindEvents: function() {
+                document.getElementById('nextBtn').addEventListener('click', () => this.nextStep());
+                document.getElementById('prevBtn').addEventListener('click', () => this.prevStep());
+                document.getElementById('addSignalBtn').addEventListener('click', () => this.addSignalGroup());
+                document.getElementById('downloadCsvBtn').addEventListener('click', () => this.generateCsv());
+
+                document.getElementById('orderForm').addEventListener('submit', (e) => { e.preventDefault(); this.sendOrderEmail(); });
+
+                document.querySelectorAll('input, select, textarea').forEach(el => {
+                    el.addEventListener('change', () => this.updateNav());
+                    el.addEventListener('keyup', () => this.updateNav());
+                });
+
+                document.getElementById('milStd').addEventListener('change', async (e) => {
+                    const std = e.target.value;
+                    const isCustom = std === 'Custom';
+                    document.getElementById('standardSelectorContainer').classList.toggle('hidden', isCustom);
+                    document.getElementById('customConnectorContainer').classList.toggle('hidden', !isCustom);
+                    ['pinArrangement', 'connectorType'].forEach(id => { document.getElementById(id).innerHTML = `<option value="">-- Select --</option>`; document.getElementById(id).disabled = true; });
+                    if (!isCustom && std) {
+                        document.getElementById('pinArrangement').innerHTML = '<option>Loading...</option>';
+                        const res = await API.get(`/api/arrangements?std=${encodeURIComponent(std)}`);
+                        const el = document.getElementById('pinArrangement');
+                        el.innerHTML = `<option value="">-- Select Arrangement --</option>`;
+                        res.data.forEach(i => el.innerHTML += `<option value="${i}">${i}</option>`);
+                        el.disabled = false;
+                    }
+                    this.updatePlaceholders();
+                });
+
+                document.getElementById('pinArrangement').addEventListener('change', async (e) => {
+                    const std = document.getElementById('milStd').value;
+                    const arr = e.target.value;
+                    if (std && arr) {
+                        document.getElementById('connectorType').innerHTML = '<option>Loading...</option>';
+                        const res = await API.get(`/api/types?std=${encodeURIComponent(std)}&arr=${encodeURIComponent(arr)}`);
+                        const el = document.getElementById('connectorType');
+                        el.innerHTML = `<option value="">-- Select Type --</option>`;
+                        res.data.forEach(i => el.innerHTML += `<option value="${i}">${i}</option>`);
+                        el.disabled = false;
+                    }
+                    this.updatePlaceholders();
+                });
+
+                document.getElementById('connectorType').addEventListener('change', () => this.updatePlaceholders());
+
+                document.getElementById('capacitancePathChooser').addEventListener('change', (e) => {
+                    document.getElementById('pathA_KnownCap').classList.toggle('hidden', e.target.value !== 'yes');
+                    document.getElementById('pathB_FindCap').classList.toggle('hidden', e.target.value !== 'no');
+                });
+                document.getElementById('acVoltage').addEventListener('change', (e) => { document.getElementById('acVoltageDetails').classList.toggle('hidden', e.target.value !== 'yes'); });
+                document.getElementById('customLabeling').addEventListener('change', (e) => {
+                    document.getElementById('customPinListContainer').classList.toggle('hidden', e.target.value !== 'Custom');
+                    this.updatePlaceholders();
+                });
+                document.getElementById('customPinCount').addEventListener('input', () => this.updatePlaceholders());
+                document.getElementById('customPinList').addEventListener('input', () => this.updatePlaceholders());
+            },
+
+            updatePlaceholders: async function() {
+                const std = document.getElementById('milStd').value;
+                let labels =[];
+                if(std === 'Custom') {
+                    const count = parseInt(document.getElementById('customPinCount').value) || 0;
+                    const style = document.getElementById('customLabeling').value;
+                    if (count > 0) {
+                        if(style==='Number') labels = Array.from({length:count},(_,i)=>String(i+1));
+                        else if(style==='Letter') labels = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split('').slice(0,count);
+                        else labels = document.getElementById('customPinList').value.split(',').map(s=>s.trim());
+                    }
+                } else if (std && document.getElementById('pinArrangement').value && document.getElementById('connectorType').value) {
+                    const res = await API.get(`/api/pin-labels?std=${encodeURIComponent(std)}&arr=${encodeURIComponent(document.getElementById('pinArrangement').value)}&type=${encodeURIComponent(document.getElementById('connectorType').value)}`);
+                    if(res.status === 'success') labels = res.data;
+                }
+
+                this.state.currentPinLabels = labels;
+                let txt = labels.length > 0 ? (labels.length > 8 ? `e.g. ${labels[0]}, ${labels[4]}-${labels[7]}` : `e.g. ${labels[0]}`) : "Select connector first";
+                ['acPins', 'shortedPins', 'untreatablePins'].forEach(id => document.getElementById(id).placeholder = txt);
+                document.querySelectorAll('.signal-pins').forEach(el => el.placeholder = txt);
+            },
+
+            addSignalGroup: function() {
+                const div = document.createElement('div');
+                div.className = 'signal-group';
+                div.innerHTML = `<div class="field"><label>Data Frequency (Hz)</label><input type="number" class="signal-freq" placeholder="e.g. 500000"></div><div class="field"><label>Associated Pins</label><input type="text" class="signal-pins" placeholder="${document.getElementById('acPins').placeholder}"></div><button type="button" class="btn danger" style="padding:5px 10px; margin-bottom:0px;">&times;</button>`;
+                div.querySelector('.danger').onclick = () => div.remove();
+                document.getElementById('customSignalContainer').appendChild(div);
+            },
+
+            parsePinString: function(str) {
+                if(!str) return[];
+                const labels = this.state.currentPinLabels;
+                const pins = new Set();
+                str.replace(/\s/g, "").split(",").forEach(part => {
+                    if(part.includes("-")) {
+                        const [s, e] = part.split("-");
+                        const si = labels.indexOf(s), ei = labels.indexOf(e);
+                        if(si !== -1 && ei !== -1 && si <= ei) for(let i=si; i<=ei; i++) pins.add(labels[i]);
+                    } else if(labels.includes(part)) pins.add(part);
+                });
+                return Array.from(pins);
+            },
+
+            nextStep: function() {
+                if (!this.validateStep(this.state.currentStep)) return;
+                if (this.state.currentStep === this.state.totalSteps) { document.getElementById('orderModal').style.display = 'flex'; return; }
+                if (this.state.currentStep === this.state.totalSteps - 1) this.submitDesign();
+                else this.showStep(this.state.currentStep + 1);
+            },
+            prevStep: function() { this.showStep(this.state.currentStep - 1); },
+            showStep: function(n) {
+                document.querySelector(`.step[data-step="${this.state.currentStep}"]`).classList.remove('active');
+                document.querySelector(`.step[data-step="${n}"]`).classList.add('active');
+                this.state.currentStep = n; this.updateNav();
+            },
+
+            updateNav: function() {
+                const step = this.state.currentStep;
+                document.getElementById('prevBtn').disabled = step === 1;
+                document.getElementById('stepIndicator').textContent = `Step ${step} of ${this.state.totalSteps - 1}`;
+                if (step === this.state.totalSteps) document.getElementById('nextBtn').textContent = "Export Specification";
+                else if (step === this.state.totalSteps - 1) document.getElementById('nextBtn').textContent = "Compile & Analyze";
+                else document.getElementById('nextBtn').textContent = "Next Phase";
+                document.getElementById('nextBtn').disabled = !this.validateStep(step);
+            },
+
+            validateStep: function(step) {
+                const val = (id) => document.getElementById(id).value;
+                const mark = (id, valid) => document.getElementById(id).classList.toggle('invalid', !valid);
+                if (step === 1) return !document.getElementById('milStd').disabled;
+                if (step === 2) {
+                    if (val('milStd') === 'Custom') {
+                        const ok = val('customPartNumber').trim() !== '' && val('customPinCount') > 0;
+                        mark('customPartNumber', val('customPartNumber').trim() !== '');
+                        mark('customPinCount', val('customPinCount') > 0);
+                        return ok;
+                    }
+                    return val('milStd') && val('pinArrangement') && val('connectorType');
+                }
+                if (step === 3) {
+                    const p = val('capacitancePathChooser');
+                    if (p === 'yes') return val('knownCap') !== '';
+                    if (p === 'no') return val('fLow') !== '' && val('fHigh') !== '';
+                    return false;
+                }
+                if (step === 4) return val('highestDc') !== '';
+                return true;
+            },
+
+            submitDesign: async function() {
+                document.getElementById('loadingScreen').style.display = 'flex';
+                let connectorData = null;
+                if (document.getElementById('milStd').value === 'Custom') {
+                    connectorData = { "MIL-Standard": "Custom", "Pin Arrangement": "Custom-Layout", "Connector Type": "Custom", "Pins": parseInt(document.getElementById('customPinCount').value), "Max Size": parseInt(document.getElementById('customDensity').value), "Max Thickness (mils)": 40.0, "Labeling": document.getElementById('customLabeling').value, "Pin Skip/List": document.getElementById('customPinList').value };
+                }
+
+                const payload = {
+                    milStd: document.getElementById('milStd').value, pinArrangement: document.getElementById('pinArrangement').value, connectorType: document.getElementById('connectorType').value, customConnectorData: connectorData,
+                    highestDc: parseFloat(document.getElementById('highestDc').value) || 0,
+                    targetCap: document.getElementById('capacitancePathChooser').value === 'yes' ? (parseFloat(document.getElementById('knownCap').value) * (document.getElementById('knownCapUnit').value === 'nF' ? 1e-9 : (document.getElementById('knownCapUnit').value === 'uF' ? 1e-6 : 1e-12))) : null,
+                    fLow: (parseFloat(document.getElementById('fLow').value)||0) * (parseFloat(document.getElementById('fLowUnit').value)||1),
+                    fHigh: (parseFloat(document.getElementById('fHigh').value)||0) * (parseFloat(document.getElementById('fHighUnit').value)||1),
+                    acPins: this.parsePinString(document.getElementById('acPins').value), highestAc: parseFloat(document.getElementById('highestAc').value) || 0, shortedPins: this.parsePinString(document.getElementById('shortedPins').value), untreatablePins: this.parsePinString(document.getElementById('untreatablePins').value),
+                    customSignals: Array.from(document.querySelectorAll('.signal-group')).map(g => ({ freq: parseFloat(g.querySelector('.signal-freq').value), pins: this.parsePinString(g.querySelector('.signal-pins').value) })).filter(sg => sg.freq && sg.pins.length),
+                    acPresent: document.getElementById('acVoltage').value === 'yes', capacitancePath: document.getElementById('capacitancePathChooser').value
+                };
+
+                const res = await API.post('/api/calculate', payload);
+                document.getElementById('loadingScreen').style.display = 'none';
+                this.showStep(6);
+
+                if (res.status === 'success') {
+                    this.state.lastPayload = payload; this.state.lastResult = res; this.renderResults(res);
+                } else document.getElementById('summaryText').innerHTML = `<div class="alert alert-danger">${res.message}</div>`;
+            },
+
+            renderResults: function(data) {
+                document.getElementById('summaryText').innerHTML = data.summaryHtml;
+                document.getElementById('pinoutDescription').innerHTML = data.pinoutDescription;
+
+                if (this.state.chart) this.state.chart.destroy();
+                const ctx = document.getElementById('attenChart').getContext('2d');
+                
+                const rangePlugin = {
+                    id: 'rangeHighlight',
+                    beforeDraw: (chart) => {
+                        const fLow = (parseFloat(document.getElementById('fLow').value)||0) * (parseFloat(document.getElementById('fLowUnit').value)||1);
+                        const fHigh = (parseFloat(document.getElementById('fHigh').value)||0) * (parseFloat(document.getElementById('fHighUnit').value)||1);
+                        if (document.getElementById('capacitancePathChooser').value === 'yes' || !fLow || !fHigh) return;
+                        const { ctx, chartArea, scales: { x } } = chart;
+                        const low = x.getPixelForValue(fLow), high = x.getPixelForValue(fHigh);
+                        ctx.save(); ctx.fillStyle = 'rgba(150, 150, 150, 0.2)';
+                        ctx.fillRect(chartArea.left, chartArea.top, low - chartArea.left, chartArea.height);
+                        ctx.fillRect(high, chartArea.top, chartArea.right - high, chartArea.height);
+                        ctx.restore();
+                    }
+                };
+
+                const datasets = data.chartData.map(d => ({
+                    label: ServerLogic.formatCapServer(d.cap), data: d.points,
+                    borderColor: d.isUsed ? data.colorMap[d.cap] || 'var(--blue)' : 'rgba(255,255,255,0.15)',
+                    borderWidth: d.isUsed ? 3 : 1.5, pointRadius: 0, order: d.isUsed ? 1 : 10
+                }));
+
+                const gridColor = "rgba(255,255,255,0.05)";
+                const textColor = "var(--muted)";
+
+                this.state.chart = new Chart(ctx, {
+                    type: 'line', data: { datasets },
+                    options: {
+                        responsive: true, maintainAspectRatio: false,
+                        scales: {
+                            x: { type: 'logarithmic', min: 1e5, max: 1e9, title: { display: true, text: 'Frequency', color: textColor }, grid: { color: gridColor }, ticks: { color: textColor, callback: (v) => v>=1e9 ? v/1e9+" GHz" : (v>=1e6 ? v/1e6+" MHz" : (v>=1e3 ? v/1e3+" kHz" : v+" Hz")) } },
+                            y: { title: { display: true, text: 'Attenuation (dB)', color: textColor }, grid: { color: gridColor }, ticks: { color: textColor } }
+                        },
+                        plugins: { legend: { display: false }, tooltip: { mode: 'nearest', intersect: true } },
+                        interaction: { mode: 'nearest', intersect: false, axis: 'x' }
+                    },
+                    plugins: [rangePlugin]
+                });
+
+                const grid = document.getElementById('pinoutGrid');
+                grid.innerHTML = "";
+                data.allPinLabels.forEach(pin => {
+                    const info = data.pinMap[pin];
+                    let txt = info.type === 'FILTERED' ? info.formattedValue : (info.type === 'GROUND' ? 'GND' : info.value || 'OPEN');
+                    let style = info.type === 'FILTERED' ? `style="background-color:${info.color}; color:white; border-color:${info.color};"` : (info.type === 'GROUND' ? 'style="background-color:#454a52; color:white; border-color:#454a52;"' : '');
+                    grid.innerHTML += `<div class="pin"><div class="pin-num">${pin}</div><div class="pin-status ${info.type.toLowerCase()}" ${style}>${txt}</div></div>`;
+                });
+            },
+
+            formatPinRangeForUI: function(pins, allLabels) {
+                if (!pins || pins.length === 0) return "None";
+                if (!allLabels || allLabels.length === 0) return pins.join(", ");
+                const sorted =[...pins].sort((a,b) => allLabels.indexOf(a) - allLabels.indexOf(b));
+                let ranges = [], start = sorted[0], end = sorted[0];
+                for (let i = 1; i < sorted.length; i++) {
+                    if (allLabels.indexOf(sorted[i]) === allLabels.indexOf(end) + 1) end = sorted[i];
+                    else { ranges.push(start === end ? start : `${start}-${end}`); start = end = sorted[i]; }
+                }
+                ranges.push(start === end ? start : `${start}-${end}`);
+                return ranges.join(", ");
+            },
+
+            sendOrderEmail: function() {
+                const name = document.getElementById("contactName").value;
+                const company = document.getElementById("contactCompany").value;
+                const email = document.getElementById("contactEmail").value;
+                const phone = document.getElementById("contactPhone").value;
+                
+                const chartImg = document.getElementById("attenChart").toDataURL("image/png");
+                const inputs = this.state.lastPayload;
+                const allLabels = this.state.lastResult.allPinLabels;
+
+                const styles = {
+                    body: `font-family: Arial, sans-serif; line-height: 1.6; color: #F4F7F6; background: #1E2022; margin: 0; padding: 20px;`,
+                    container: `max-width: 800px; margin: 0 auto; background: #2B2E33; border: 1px solid #454a52; border-radius: 8px;`,
+                    header: `background: #3B7197; color: #fff; padding: 20px; text-align: center; border-radius: 8px 8px 0 0;`,
+                    content: `padding: 25px;`,
+                    h2: `color: #3B7197; border-bottom: 2px solid #454a52; padding-bottom: 10px; margin: 0 0 15px;`,
+                    table: `width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 14px;`,
+                    td: `padding: 8px; border: 1px solid #454a52; vertical-align: top;`,
+                    tdKey: `padding: 8px; border: 1px solid #454a52; background: rgba(0,0,0,0.2); font-weight: bold; width: 200px;`,
+                    th: `padding: 8px; border: 1px solid #454a52; background: rgba(0,0,0,0.4); text-align: left; font-weight: bold;`
+                };
+
+                let html = `<!DOCTYPE html><html lang="en"><head><title>Spec Sheet</title></head><body style="${styles.body}"><div style="${styles.container}">
+                    <div style="${styles.header}"><h1>Filtered Connector Specification</h1></div>
+                    <div style="${styles.content}">
+                    <h2 style="${styles.h2}">Contact Information</h2>
+                    <table style="${styles.table}"><tr><td style="${styles.tdKey}">Name</td><td style="${styles.td}">${name}</td></tr><tr><td style="${styles.tdKey}">Company</td><td style="${styles.td}">${company}</td></tr><tr><td style="${styles.tdKey}">Email</td><td style="${styles.td}">${email}</td></tr><tr><td style="${styles.tdKey}">Phone</td><td style="${styles.td}">${phone}</td></tr></table>`;
+
+                html += `<h2 style="${styles.h2}">Design Requirements</h2><table style="${styles.table}">`;
+                if (inputs.milStd === 'Custom') {
+                    html += `<tr><td style="${styles.tdKey}">Part Number</td><td style="${styles.td}">${document.getElementById('customPartNumber').value}</td></tr><tr><td style="${styles.tdKey}">Pin Count</td><td style="${styles.td}">${inputs.customConnectorData.Pins}</td></tr>`;
+                } else {
+                    html += `<tr><td style="${styles.tdKey}">Standard</td><td style="${styles.td}">${inputs.milStd}</td></tr><tr><td style="${styles.tdKey}">Arrangement</td><td style="${styles.td}">${inputs.pinArrangement}</td></tr><tr><td style="${styles.tdKey}">Type</td><td style="${styles.td}">${inputs.connectorType}</td></tr>`;
+                }
+                html += `<tr><td style="${styles.tdKey}">Max DC Voltage</td><td style="${styles.td}">${inputs.highestDc} V</td></tr>`;
+                if (inputs.acPresent) html += `<tr><td style="${styles.tdKey}">AC Voltage</td><td style="${styles.td}">${inputs.highestAc} V<br>Pins: ${this.formatPinRangeForUI(inputs.acPins, allLabels)}</td></tr>`;
+                if (inputs.shortedPins.length > 0) html += `<tr><td style="${styles.tdKey}">Shorted/Ground</td><td style="${styles.td}">Pins: ${this.formatPinRangeForUI(inputs.shortedPins, allLabels)}</td></tr>`;
+                if (inputs.untreatablePins.length > 0) html += `<tr><td style="${styles.tdKey}">Untreatable (User)</td><td style="${styles.td}">Pins: ${this.formatPinRangeForUI(inputs.untreatablePins, allLabels)}</td></tr>`;
+                if (inputs.customSignals.length > 0) {
+                    let sigDetails = "";
+                    inputs.customSignals.forEach((sg, i) => { sigDetails += `<div><strong>Group ${i+1}:</strong> ${sg.freq.toLocaleString()} Hz on Pins[${this.formatPinRangeForUI(sg.pins, allLabels)}]</div>`; });
+                    html += `<tr><td style="${styles.tdKey}">Custom Signals</td><td style="${styles.td}">${sigDetails}</td></tr>`;
+                }
+                if (inputs.targetCap) html += `<tr><td style="${styles.tdKey}">Target Cap</td><td style="${styles.td}">${ServerLogic.formatCapServer(inputs.targetCap)}</td></tr>`;
+                else html += `<tr><td style="${styles.tdKey}">Target Freq Range</td><td style="${styles.td}">${(inputs.fLow/1e6).toFixed(3)} MHz - ${(inputs.fHigh/1e6).toFixed(3)} MHz</td></tr>`;
+                html += `</table>`;
+
+                html += `<h2 style="${styles.h2}">Pinout Description</h2><div style="padding:15px; background:rgba(0,0,0,0.2); border:1px solid #454a52; margin-bottom:20px; border-radius: 6px;">${this.state.lastResult.pinoutDescription}</div>`;
+                html += `<h2 style="${styles.h2}">Attenuation Performance</h2><div style="text-align:center; border:1px solid #454a52; padding:15px; margin-bottom:20px; background:rgba(0,0,0,0.2); border-radius: 6px;"><img src="${chartImg}" alt="Chart" style="max-width:100%; height:auto;"></div>`;
+                html += `<h2 style="${styles.h2}">Detailed Pin Configuration</h2><table style="${styles.table}"><thead><tr><th style="${styles.th}">Pin</th><th style="${styles.th}">Status</th><th style="${styles.th}">Value</th><th style="${styles.th}">Note</th></tr></thead><tbody>`;
+                
+                const { pinMap } = this.state.lastResult;
+                allLabels.forEach(pin => {
+                    const data = pinMap[pin];
+                    const cap = data.type === 'FILTERED' ? ServerLogic.formatCapServer(data.capF) : '-';
+                    html += `<tr><td style="${styles.td}">${pin}</td><td style="${styles.td}">${data.type}</td><td style="${styles.td}">${cap}</td><td style="${styles.td}">${data.type === 'FILTERED' ? data.freq : data.value}</td></tr>`;
+                });
+                
+                html += `</tbody></table></div></div></body></html>`;
+                const win = window.open("", "_blank");
+                if(win) { win.document.write(html); win.document.close(); }
+                else alert("Please allow popups to view the spec sheet preview.");
+
+                document.getElementById('orderModal').style.display = 'none';
+                document.getElementById('orderConfirmation').style.display = 'flex';
+            },
+
+            generateCsv: function() {
+                if(!this.state.lastResult) return;
+                const { pinMap, allPinLabels } = this.state.lastResult;
+                let csv = "Pin Label,Type,Capacitance,Voltage,Notes\n";
+                allPinLabels.forEach(pin => {
+                    const d = pinMap[pin];
+                    const cap = d.type === 'FILTERED' ? ServerLogic.formatCapServer(d.capF) : '';
+                    const volt = d.type === 'FILTERED' ? d.voltage : '';
+                    const note = d.type === 'FILTERED' ? d.freq : d.value;
+                    csv += `"${pin}","${d.type}","${cap}","${volt}","${note}"\n`;
+                });
+                const link = document.createElement("a");
+                link.href = "data:text/csv;charset=utf-8," + encodeURIComponent(csv);
+                link.download = `Filtered_Connector_Pinout.csv`;
+                document.body.appendChild(link); link.click(); document.body.removeChild(link);
+            }
+        };
+
+        document.addEventListener('DOMContentLoaded', () => Client.init());
+    </script>
+</body>
+</html>
